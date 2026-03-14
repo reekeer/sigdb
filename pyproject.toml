@@ -1,0 +1,125 @@
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sigdb"
+dynamic = ["vesion"]
+
+description = ".sigdb trie/Aho–Corasick compiler and loader"
+readme = "README.md"
+requires-python = ">=3.11"
+
+license = { text = "MIT" }
+
+authors = [
+  { name = "reekeer team" }
+]
+
+keywords = [
+  "stackscan"
+  "aho-corasick", 
+  "fingerprints", 
+  "sigdb", 
+  "signatures", 
+  "trie"
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Typing :: Typed",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+
+dependencies = [
+  "pynacl>=1.5.0",
+  "zstandard>=0.22.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pyright>=1.1.350", 
+  "ruff>=0.6.0",
+  "black>=24.0"
+]
+
+[project.urls]
+Source = "https://github.com/reekeer/sigdb"
+Issues = "https://github.com/reekeer/sigdb/issues"
+
+
+[tool.hatch.version]
+path = "src/sigdb/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sigdb"]
+
+[tool.hatch.build.targets.sdist]
+include = ["README.md", "pyproject.toml", "src/sigdb/**", "typings/**"]
+
+[tool.hatch.envs.default]
+dependencies = [
+  "pyright", 
+  "ruff",
+  "black"
+]
+
+[tool.hatch.envs.default.scripts]
+lint = "ruff check src"
+fmt = "ruff format src"
+typecheck = "pyright"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.ruff.lint]
+select = [
+  "E", # pycodestyle
+  "F", # pyflakes
+  "I", # isort
+  "UP", # pyupgrade
+  "B", # flake8-bugbear
+  "SIM", # flake8-simplify
+  "C4", # flake8-comprehensions
+  "RUF", # ruff-specific
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["sigdb"]
+
+[tool.pyright]
+include = ["src"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+stubPath = "typings"
+reportMissingModuleSource = false
+
+
+[tool.black]
+
+line-length = 100
+target-version = ["py310"]
+
+include = '\.pyi?$'
+
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | \venv
+  | build
+  | dist
+  | __pycache__
+)/
+'''
