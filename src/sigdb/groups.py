@@ -7,11 +7,13 @@ from sigdb.types import SigDBFormatError
 SIGDB_GROUPS: tuple[str, ...] = (
     "headers",
     "js",
+    "meta",
 )
 
 SIGDB_GROUPS_MAP: frozenset[str] = frozenset(
     {
         "headers",
+        "meta",
     }
 )
 
