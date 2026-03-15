@@ -13,6 +13,7 @@ SIGDB_GROUPS: tuple[str, ...] = (
     "css",
     "url",
     "path",
+    "file",
 )
 
 SIGDB_GROUPS_MAP: frozenset[str] = frozenset(
