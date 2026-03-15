@@ -51,11 +51,21 @@ SigDBStringList: TypeAlias = Sequence[str] | str
 SigDBStringMap: TypeAlias = Mapping[str, str]
 
 
+class SigDBHtmlSpec(TypedDict, total=False):
+    tag: str
+    attr: str
+    value: str
+
+
+SigDBHtmlPattern: TypeAlias = SigDBHtmlSpec | str
+SigDBHtmlList: TypeAlias = Sequence[SigDBHtmlPattern] | SigDBHtmlPattern
+
+
 class SigDBRuleDefinition(TypedDict, total=False):
     headers: SigDBStringMap
     js: SigDBStringList
     meta: SigDBStringMap
-    html: SigDBStringList
+    html: SigDBHtmlList
     script_src: SigDBStringList
     css: SigDBStringList
     url: SigDBStringList
