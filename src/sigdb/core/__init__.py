@@ -7,13 +7,15 @@ from sigdb.core.api import (
     read_sigdb_metadata,
     validate_sigdb,
 )
-from sigdb.core.reader import SigDBReader
+from sigdb.core.reader import SigDBMatcher, SigDBReader, match
 
 __all__ = [
+    "SigDBMatcher",
     "SigDBReader",
     "build_sigdb",
     "compile_sigdb_json",
     "load_sigdb",
+    "match",
     "read_sigdb_metadata",
     "validate_sigdb",
 ]

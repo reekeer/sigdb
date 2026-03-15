@@ -12,6 +12,7 @@ from sigdb.types.models import (
     SigDBBuildResult,
     SigDBDatabase,
     SigDBItem,
+    SigDBMatchResult,
     SigDBValidationResult,
 )
 
@@ -24,6 +25,7 @@ __all__ = [
     "SigDBFormatError",
     "SigDBIntegrityError",
     "SigDBItem",
+    "SigDBMatchResult",
     "SigDBSignatureError",
     "SigDBValidationResult",
 ]

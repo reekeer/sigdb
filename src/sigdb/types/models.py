@@ -71,6 +71,14 @@ class SigDBDatabase:
 
 
 @dataclass(frozen=True, slots=True)
+class SigDBMatchResult:
+    result: bool
+    item_id: int | None
+    item: SigDBItem | None
+    head: str
+
+
+@dataclass(frozen=True, slots=True)
 class SigDBValidationResult:
     ok: bool
     errors: list[str]
