@@ -4,12 +4,17 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from sigdb.types import SigDBBuildResult, SigDBDatabase, SigDBValidationResult
+from sigdb.types import (
+    SigDBBuildResult,
+    SigDBDatabase,
+    SigDBRules,
+    SigDBValidationResult,
+)
 
 
 def build_sigdb(
     *,
-    rules: object,
+    rules: SigDBRules,
     output_path: str | Path,
     metadata: Mapping[str, Any] | None = None,
     signing_key_hex: str | None = None,

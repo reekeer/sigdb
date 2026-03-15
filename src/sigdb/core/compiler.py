@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
-from sigdb.types import SigDBBuildResult, SigDBFormatError
+from sigdb.types import SigDBBuildResult, SigDBFormatError, SigDBRules
 
 
 def compile_sigdb_json(
@@ -25,7 +25,7 @@ def compile_sigdb_json(
     from sigdb.format.trie import build_sigdb
 
     return build_sigdb(
-        rules=cast(object, rules_any),
+        rules=cast(SigDBRules, rules_any),
         output_path=output_path,
         metadata=metadata,
         signing_key_hex=signing_key_hex,
