@@ -9,7 +9,8 @@ from sigdb.groups import (
     SIGDB_GROUPS_MAP,
     format_list_pattern,
     format_map_pattern,
-    parse_string_list,
+    html_heads,
+    parse_group_list,
     parse_string_map,
 )
 from sigdb.types import (
@@ -46,7 +47,7 @@ def _iter_search_heads(search: SigDBSearchDefinition) -> list[str]:
             for name, value in group_map.items():
                 heads.append(format_map_pattern(group, name, value))
         else:
-            group_values = parse_string_list(search.get(group), group)
+            group_values = parse_group_list(search.get(group), group)
             for value in group_values:
                 heads.append(format_list_pattern(group, value))
     return heads
@@ -132,6 +133,13 @@ class SigDBMatcher:
 
     def match_search(self, search: SigDBSearchDefinition) -> SigDBMatchResult:
         for head in _iter_search_heads(search):
+            result = self.match(head)
+            if result.result:
+                return result
+        return SigDBMatchResult(result=False, item_id=None, item=None, head="")
+
+    def match_html(self, html: str) -> SigDBMatchResult:
+        for head in html_heads(html):
             result = self.match(head)
             if result.result:
                 return result
@@ -237,6 +245,28 @@ def match_search(search: SigDBSearchDefinition, src: object) -> SigDBMatchResult
     raise TypeError("src must be SigDBReader, SigDBDatabase, or SigDBMatcher")
 
 
+@overload
+def match_html(html: str, src: SigDBMatcher) -> SigDBMatchResult: ...
+
+
+@overload
+def match_html(html: str, src: SigDBDatabase) -> SigDBMatchResult: ...
+
+
+@overload
+def match_html(html: str, src: SigDBReader) -> SigDBMatchResult: ...
+
+
+def match_html(html: str, src: object) -> SigDBMatchResult:
+    if isinstance(src, SigDBMatcher):
+        return src.match_html(html)
+    if isinstance(src, SigDBDatabase):
+        return SigDBMatcher(src).match_html(html)
+    if isinstance(src, SigDBReader):
+        return src.matcher().match_html(html)
+    raise TypeError("src must be SigDBReader, SigDBDatabase, or SigDBMatcher")
+
+
 class SigDBReader:
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
@@ -325,3 +355,6 @@ class SigDBReader:
 
     def match_search(self, search: SigDBSearchDefinition) -> SigDBMatchResult:
         return self.matcher().match_search(search)
+
+    def match_html(self, html: str) -> SigDBMatchResult:
+        return self.matcher().match_html(html)

@@ -21,7 +21,7 @@ from sigdb.groups import (
     SIGDB_GROUPS_MAP,
     format_list_pattern,
     format_map_pattern,
-    parse_string_list,
+    parse_group_list,
     parse_string_map,
 )
 from sigdb.storage import read_exact
@@ -319,7 +319,7 @@ def _compile_rules(rules: object) -> tuple[list[SigDBItem], dict[bytes, list[int
                 group_map = parse_string_map(value.get(group), group)
                 _add_map_patterns(patterns, group, group_map, item_id)
             else:
-                group_values = parse_string_list(value.get(group), group)
+                group_values = parse_group_list(value.get(group), group)
                 _add_list_patterns(patterns, group, group_values, item_id)
 
     for pattern, ids in patterns.items():
