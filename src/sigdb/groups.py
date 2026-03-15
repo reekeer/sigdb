@@ -11,6 +11,7 @@ SIGDB_GROUPS: tuple[str, ...] = (
     "html",
     "script_src",
     "css",
+    "url",
 )
 
 SIGDB_GROUPS_MAP: frozenset[str] = frozenset(
