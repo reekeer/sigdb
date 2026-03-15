@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, overload
 
@@ -16,7 +15,9 @@ from sigdb.groups import (
 from sigdb.types import (
     SigDBDatabase,
     SigDBFormatError,
+    SigDBGroupName,
     SigDBMatchResult,
+    SigDBSearchDefinition,
     SigDBValidationResult,
 )
 
@@ -31,7 +32,7 @@ def _normalize_head(head: str) -> str:
     return f"{name}:{value}"
 
 
-def _iter_search_heads(search: Mapping[str, Any]) -> list[str]:
+def _iter_search_heads(search: SigDBSearchDefinition) -> list[str]:
     heads: list[str] = []
     headers = parse_string_map(search.get("headers"), "headers")
     for header_name, header_value in headers.items():
@@ -112,7 +113,7 @@ class SigDBMatcher:
 
     def match_group(
         self,
-        group: str,
+        group: SigDBGroupName,
         value: str,
         *,
         name: str | None = None,
@@ -129,7 +130,7 @@ class SigDBMatcher:
             head = format_map_pattern(group, name, value)
         return self.match(head)
 
-    def match_search(self, search: Mapping[str, Any]) -> SigDBMatchResult:
+    def match_search(self, search: SigDBSearchDefinition) -> SigDBMatchResult:
         for head in _iter_search_heads(search):
             result = self.match(head)
             if result.result:
@@ -161,7 +162,7 @@ def match(head: str, src: object) -> SigDBMatchResult:
 
 @overload
 def match_group(
-    group: str,
+    group: SigDBGroupName,
     value: str,
     src: SigDBMatcher,
     *,
@@ -171,7 +172,7 @@ def match_group(
 
 @overload
 def match_group(
-    group: str,
+    group: SigDBGroupName,
     value: str,
     src: SigDBDatabase,
     *,
@@ -181,7 +182,7 @@ def match_group(
 
 @overload
 def match_group(
-    group: str,
+    group: SigDBGroupName,
     value: str,
     src: SigDBReader,
     *,
@@ -190,7 +191,7 @@ def match_group(
 
 
 def match_group(
-    group: str,
+    group: SigDBGroupName,
     value: str,
     src: object,
     *,
@@ -207,26 +208,26 @@ def match_group(
 
 @overload
 def match_search(
-    search: Mapping[str, Any],
+    search: SigDBSearchDefinition,
     src: SigDBMatcher,
 ) -> SigDBMatchResult: ...
 
 
 @overload
 def match_search(
-    search: Mapping[str, Any],
+    search: SigDBSearchDefinition,
     src: SigDBDatabase,
 ) -> SigDBMatchResult: ...
 
 
 @overload
 def match_search(
-    search: Mapping[str, Any],
+    search: SigDBSearchDefinition,
     src: SigDBReader,
 ) -> SigDBMatchResult: ...
 
 
-def match_search(search: Mapping[str, Any], src: object) -> SigDBMatchResult:
+def match_search(search: SigDBSearchDefinition, src: object) -> SigDBMatchResult:
     if isinstance(src, SigDBMatcher):
         return src.match_search(search)
     if isinstance(src, SigDBDatabase):
@@ -315,12 +316,12 @@ class SigDBReader:
 
     def match_group(
         self,
-        group: str,
+        group: SigDBGroupName,
         value: str,
         *,
         name: str | None = None,
     ) -> SigDBMatchResult:
         return self.matcher().match_group(group, value, name=name)
 
-    def match_search(self, search: Mapping[str, Any]) -> SigDBMatchResult:
+    def match_search(self, search: SigDBSearchDefinition) -> SigDBMatchResult:
         return self.matcher().match_search(search)

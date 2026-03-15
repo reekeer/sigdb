@@ -32,6 +32,7 @@ from sigdb.types import (
     SigDBFormatError,
     SigDBIntegrityError,
     SigDBItem,
+    SigDBRules,
     SigDBSignatureError,
     SigDBValidationResult,
 )
@@ -73,7 +74,7 @@ def read_sigdb_metadata(path: str | Path) -> dict[str, Any]:
 
 def build_sigdb(
     *,
-    rules: object,
+    rules: SigDBRules,
     output_path: str | Path,
     metadata: Mapping[str, Any] | None = None,
     signing_key_hex: str | None = None,
