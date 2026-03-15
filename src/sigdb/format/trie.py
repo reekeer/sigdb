@@ -16,7 +16,7 @@ from sigdb.crypto import (
     sign_hash,
     verify_hash_signature,
 )
-from sigdb.groups import (
+from sigdb.internal.groups import (
     SIGDB_GROUPS,
     SIGDB_GROUPS_MAP,
     format_list_pattern,

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, overload
 
 from sigdb.format.trie import load_sigdb, read_sigdb_metadata, validate_sigdb
-from sigdb.groups import (
+from sigdb.internal.groups import (
     SIGDB_GROUPS,
     SIGDB_GROUPS_MAP,
     format_list_pattern,
