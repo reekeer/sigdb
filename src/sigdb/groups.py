@@ -6,6 +6,7 @@ from sigdb.types import SigDBFormatError
 
 SIGDB_GROUPS: tuple[str, ...] = (
     "headers",
+    "js",
 )
 
 SIGDB_GROUPS_MAP: frozenset[str] = frozenset(
