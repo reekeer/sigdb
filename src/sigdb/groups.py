@@ -16,6 +16,7 @@ SIGDB_GROUPS: tuple[str, ...] = (
     "file",
     "dns",
     "subdomain",
+    "link",
 )
 
 SIGDB_GROUPS_MAP: frozenset[str] = frozenset(
