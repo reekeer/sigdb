@@ -16,6 +16,14 @@ from sigdb.crypto import (
     sign_hash,
     verify_hash_signature,
 )
+from sigdb.groups import (
+    SIGDB_GROUPS,
+    SIGDB_GROUPS_MAP,
+    format_list_pattern,
+    format_map_pattern,
+    parse_string_list,
+    parse_string_map,
+)
 from sigdb.storage import read_exact
 from sigdb.types import (
     Automaton,
@@ -290,6 +298,7 @@ def _compile_rules(rules: object) -> tuple[list[SigDBItem], dict[bytes, list[int
     # { "nginx": {"headers": {"Server": "nginx"}}, ... }
     items: list[SigDBItem] = []
     rules_map = cast(Mapping[object, object], rules)
+    patterns: dict[bytes, list[int]] = {}
     for key_any, value_any in rules_map.items():
         if not isinstance(key_any, str) or not key_any:
             raise SigDBFormatError("rule keys must be non-empty strings")
@@ -297,15 +306,20 @@ def _compile_rules(rules: object) -> tuple[list[SigDBItem], dict[bytes, list[int
             raise SigDBFormatError("rule value must be an object")
         key = key_any
         value = cast(Mapping[str, Any], value_any)
-        headers = _parse_headers(value.get("headers", {}))
+        headers = parse_string_map(value.get("headers", {}), "headers")
+        item_id = len(items)
         items.append(SigDBItem(key=key, headers=headers))
 
-    patterns: dict[bytes, list[int]] = {}
-    for item_id, item in enumerate(items):
-        for header_name, needle in item.headers.items():
-            # Pattern is "header:needle" and matches as a substring in "header:value".
-            pattern = f"{header_name}:{needle}".lower().encode("utf-8")
-            patterns.setdefault(pattern, []).append(item_id)
+        _add_map_patterns(patterns, "headers", headers, item_id)
+        for group in SIGDB_GROUPS:
+            if group == "headers":
+                continue
+            if group in SIGDB_GROUPS_MAP:
+                group_map = parse_string_map(value.get(group), group)
+                _add_map_patterns(patterns, group, group_map, item_id)
+            else:
+                group_values = parse_string_list(value.get(group), group)
+                _add_list_patterns(patterns, group, group_values, item_id)
 
     for pattern, ids in patterns.items():
         if len(ids) > 1:
@@ -314,18 +328,33 @@ def _compile_rules(rules: object) -> tuple[list[SigDBItem], dict[bytes, list[int
     return items, patterns
 
 
-def _parse_headers(value: object) -> dict[str, str]:
-    if value is None:
-        return {}
-    if not isinstance(value, Mapping):
-        raise SigDBFormatError("headers must be an object")
-    m = cast(Mapping[object, object], value)
-    out: dict[str, str] = {}
-    for k, v in m.items():
-        if not isinstance(k, str) or not isinstance(v, str):
-            raise SigDBFormatError("headers keys/values must be strings")
-        out[k] = v
-    return out
+def _add_pattern(
+    patterns: dict[bytes, list[int]],
+    pattern: str,
+    item_id: int,
+) -> None:
+    pattern_bytes = pattern.strip().lower().encode("utf-8")
+    patterns.setdefault(pattern_bytes, []).append(item_id)
+
+
+def _add_map_patterns(
+    patterns: dict[bytes, list[int]],
+    group: str,
+    values: Mapping[str, str],
+    item_id: int,
+) -> None:
+    for key, needle in values.items():
+        _add_pattern(patterns, format_map_pattern(group, key, needle), item_id)
+
+
+def _add_list_patterns(
+    patterns: dict[bytes, list[int]],
+    group: str,
+    values: list[str],
+    item_id: int,
+) -> None:
+    for needle in values:
+        _add_pattern(patterns, format_list_pattern(group, needle), item_id)
 
 
 def _parse_items(data: bytes) -> list[SigDBItem]:
@@ -347,7 +376,7 @@ def _parse_items(data: bytes) -> list[SigDBItem]:
         key_any, headers_any = entry_list[0], entry_list[1]
         if not isinstance(key_any, str) or not key_any:
             raise SigDBFormatError("item key must be a non-empty string")
-        headers = _parse_headers(headers_any)
+        headers = parse_string_map(headers_any, "headers")
         items.append(SigDBItem(key=key_any, headers=headers))
     return items
 
