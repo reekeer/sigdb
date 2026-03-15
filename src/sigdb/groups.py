@@ -19,6 +19,7 @@ SIGDB_GROUPS: tuple[str, ...] = (
     "link",
     "json",
     "api",
+    "tls",
 )
 
 SIGDB_GROUPS_MAP: frozenset[str] = frozenset(
