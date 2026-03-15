@@ -23,6 +23,7 @@ SIGDB_GROUPS: tuple[str, ...] = (
     "server",
     "framework",
     "cms",
+    "cdn",
 )
 
 SIGDB_GROUPS_MAP: frozenset[str] = frozenset(
