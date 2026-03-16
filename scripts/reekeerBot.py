@@ -1,7 +1,9 @@
+import contextlib
 import datetime
 import json
 import os
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,9 +40,11 @@ def run_cmd(
     args: list[str],
     *,
     capture: bool = False,
+    quiet: bool = False,
     check: bool = True,
 ) -> str | None:
-    result = subprocess.run(args, capture_output=capture, text=True)
+    capture_output = capture or quiet
+    result = subprocess.run(args, capture_output=capture_output, text=True)
     if check and result.returncode != 0:
         stderr = (result.stderr or "").strip()
         raise RuntimeError(f"Command failed ({result.returncode}): {args}\n{stderr}")
@@ -51,9 +55,11 @@ def run_shell(
     cmd: str,
     *,
     capture: bool = False,
+    quiet: bool = False,
     check: bool = True,
 ) -> str | None:
-    result = subprocess.run(cmd, shell=True, capture_output=capture, text=True)
+    capture_output = capture or quiet
+    result = subprocess.run(cmd, shell=True, capture_output=capture_output, text=True)
     if check and result.returncode != 0:
         stderr = (result.stderr or "").strip()
         raise RuntimeError(f"Command failed ({result.returncode}): {cmd}\n{stderr}")
@@ -72,6 +78,11 @@ def load_json(path: Path) -> Any | None:
             return json.load(f)
     except (OSError, ValueError):
         return None
+
+
+def _redact_local_paths(text: str) -> str:
+    repo_prefix = REPO_ROOT.as_posix().rstrip("/") + "/"
+    return text.replace(repo_prefix, "")
 
 
 def create_jwt(*, app_id: int, private_key_path: Path) -> str:
@@ -147,19 +158,49 @@ def push(*, token: str, repo: str, branch: str) -> None:
     git(["push", f"https://x-access-token:{token}@github.com/{repo}.git", branch])
 
 
-def ruff_fix() -> None:
-    run_shell("ruff check . --fix", check=False)
+def _cleanup_artifacts() -> None:
+    for name in ("ruff.json", "pyright.json"):
+        with contextlib.suppress(FileNotFoundError):
+            (REPO_ROOT / name).unlink()
+
+    run_cmd(
+        ["git", "rm", "-f", "--ignore-unmatch", "ruff.json", "pyright.json"],
+        check=False,
+        quiet=True,
+    )
+
+
+def ruff_fix() -> list[dict[str, Any]]:
+    run_shell("ruff check . --fix", check=False, quiet=True)
     commit_if_changes("style(ruff): auto-fix lint issues")
-    run_shell("ruff check . --output-format=json > ruff.json || true", check=False)
+
+    out = (
+        run_shell("ruff check . --output-format=json", capture=True, check=False, quiet=True) or ""
+    )
+    try:
+        data: Any = json.loads(out) if out else []
+    except ValueError:
+        return []
+    return _as_dict_list(data)
 
 
 def black_fix() -> None:
-    run_shell("black .", check=False)
+    run_shell("black .", check=False, quiet=True)
     commit_if_changes("style(black): format code")
 
 
-def pyright_scan() -> None:
-    run_shell("pyright --outputjson > pyright.json || true", check=False)
+def pyright_scan() -> list[dict[str, Any]]:
+    out = run_shell("pyright --outputjson", capture=True, check=False, quiet=True) or ""
+    try:
+        data: Any = json.loads(out) if out else {}
+    except ValueError:
+        return []
+
+    if not isinstance(data, dict):
+        return []
+    data_d = cast(dict[str, Any], data)
+    diags = data_d.get("generalDiagnostics")
+    return _as_dict_list(diags)
 
 
 def _as_dict_list(value: Any) -> list[dict[str, Any]]:
@@ -312,7 +353,12 @@ def summarize(ruff: list[dict[str, Any]], pyright: list[dict[str, Any]]) -> str:
     if ruff:
         msg += "## Ruff issues\n"
         for r in ruff[:15]:
-            filename = r.get("filename")
+            filename_raw = r.get("filename")
+            filename = _diagnostic_repo_path(filename_raw) or (
+                filename_raw if isinstance(filename_raw, str) else None
+            )
+            if isinstance(filename, str):
+                filename = _redact_local_paths(filename)
             loc = r.get("location")
             row = cast(dict[str, Any], loc).get("row") if isinstance(loc, dict) else None
             message = r.get("message")
@@ -322,7 +368,12 @@ def summarize(ruff: list[dict[str, Any]], pyright: list[dict[str, Any]]) -> str:
     if pyright:
         msg += "\n## Pyright issues\n"
         for p in pyright[:15]:
-            file_value = p.get("file")
+            file_value_raw = p.get("file")
+            file_value = _diagnostic_repo_path(file_value_raw) or (
+                file_value_raw if isinstance(file_value_raw, str) else None
+            )
+            if isinstance(file_value, str):
+                file_value = _redact_local_paths(file_value)
             message = p.get("message")
             if isinstance(file_value, str) and isinstance(message, str):
                 msg += f"- {file_value} {message}\n"
@@ -347,7 +398,7 @@ def load_config() -> Config:
     if not private_key_path.is_absolute():
         private_key_path = (REPO_ROOT / private_key_path).resolve()
     if not private_key_path.is_file():
-        raise RuntimeError(f"Private key not found: {private_key_path}")
+        raise RuntimeError(f"Private key not found: {_redact_local_paths(str(private_key_path))}")
 
     return Config(
         repo=repo,
@@ -366,9 +417,13 @@ def main() -> None:
     git_setup()
     branch = create_branch()
 
-    ruff_fix()
+    _cleanup_artifacts()
+
+    ruff = ruff_fix()
     black_fix()
-    pyright_scan()
+    pyright = pyright_scan()
+
+    _cleanup_artifacts()
 
     push(token=token, repo=config.repo, branch=branch)
 
@@ -379,9 +434,6 @@ def main() -> None:
 
     add_reviewer(token=token, repo=config.repo, pr_number=pr_number, reviewer=config.reviewer)
 
-    ruff = ruff_errors()
-    pyright = pyright_errors()
-
     comment_pr(token=token, repo=config.repo, pr_number=pr_number, text=summarize(ruff, pyright))
 
     if pyright:
@@ -391,4 +443,8 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as exc:
+        print(_redact_local_paths(str(exc)), file=sys.stderr)
+        raise SystemExit(1) from None
