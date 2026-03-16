@@ -8,6 +8,10 @@ __pycache__/
 venv/
 .env/
 
+# Enviroments
+*.env
+*.pem
+
 # Packaging / build outputs
 build/
 dist/
