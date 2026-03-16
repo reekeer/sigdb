@@ -1,0 +1,51 @@
+name: reekeerBot
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - dev
+  pull_request:
+
+jobs:
+  bot:
+
+    runs-on: ubuntu-latest
+    environment: reekeerBot
+    
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install requests pyjwt cryptography python-dotenv
+          pip install ruff black pyright
+
+      - name: Create GitHub App private key
+        run: |
+          echo "${{ secrets.APP_PRIVATE_KEY }}" > private-key.pem
+
+      - name: Run reekeerBot
+        env:
+          APP_ID: ${{ secrets.APP_ID }}
+          INSTALLATION_ID: ${{ secrets.INSTALLATION_ID }}
+          PRIVATE_KEY_PATH: private-key.pem
+
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          BASE_BRANCH: ${{ vars.BASE_BRANCH }}
+          REVIEWER: ${{ vars.REVIEWER }}
+
+        run: |
+          python scripts/reekeerBot.py
