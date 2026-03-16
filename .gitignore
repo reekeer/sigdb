@@ -12,6 +12,10 @@ venv/
 *.env
 *.pem
 
+# reekeerBot cache files
+ruff.json
+pyright.json
+
 # Packaging / build outputs
 build/
 dist/
