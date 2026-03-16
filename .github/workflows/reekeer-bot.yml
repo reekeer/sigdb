@@ -5,14 +5,13 @@ on:
   push:
     branches:
       - dev
-  pull_request:
 
 jobs:
   bot:
 
     runs-on: ubuntu-latest
     environment: reekeerBot
-    
+
     permissions:
       contents: write
       pull-requests: write
