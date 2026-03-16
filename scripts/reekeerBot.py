@@ -1,3 +1,4 @@
+import contextlib
 import datetime
 import json
 import os
@@ -154,6 +155,18 @@ def commit_if_changes(message: str) -> bool:
 def push(*, token: str, repo: str, branch: str) -> None:
     git(["push", f"https://x-access-token:{token}@github.com/{repo}.git", branch])
 
+
+def _cleanup_artifacts() -> None:
+    for name in ("ruff.json", "pyright.json"):
+        with contextlib.suppress(FileNotFoundError):
+            (REPO_ROOT / name).unlink()
+
+    run_cmd(
+        ["git", "rm", "-f", "--ignore-unmatch", "ruff.json", "pyright.json"],
+        check=False,
+        quiet=True,
+    )
+    
 
 def ruff_fix() -> list[dict[str, Any]]:
     run_shell("ruff check . --fix", check=False, quiet=True)
@@ -402,10 +415,14 @@ def main() -> None:
     git_setup()
     branch = create_branch()
 
+    _cleanup_artifacts()
+    
     ruff = ruff_fix()
     black_fix()
     pyright = pyright_scan()
 
+    _cleanup_artifacts()
+    
     push(token=token, repo=config.repo, branch=branch)
 
     pr = create_pr(token=token, repo=config.repo, branch=branch, base_branch=config.base_branch)
