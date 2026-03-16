@@ -11,7 +11,8 @@ jobs:
   bot:
 
     runs-on: ubuntu-latest
-
+    environment: reekeerBot
+    
     permissions:
       contents: write
       pull-requests: write
@@ -43,8 +44,8 @@ jobs:
           PRIVATE_KEY_PATH: private-key.pem
 
           GITHUB_REPOSITORY: ${{ github.repository }}
-          BASE_BRANCH: ${{ secrets.BASE_BRANCH }}
-          REVIEWER: ${{ secrets.REVIEWER }}
+          BASE_BRANCH: ${{ vars.BASE_BRANCH }}
+          REVIEWER: ${{ vars.REVIEWER }}
 
         run: |
           python scripts/reekeerBot.py
