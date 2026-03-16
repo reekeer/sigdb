@@ -82,7 +82,9 @@ def create_jwt(*, app_id: int, private_key_path: Path) -> str:
         # PyJWT expects "iss" to be a string.
         "iss": str(app_id),
     }
-    return jwt.encode(payload, private_key, algorithm="RS256")  # pyright: ignore[reportUnknownMemberType]
+    return jwt.encode(
+        payload, private_key, algorithm="RS256"
+    )  # pyright: ignore[reportUnknownMemberType]
 
 
 def installation_token(config: Config) -> str:
@@ -317,9 +319,7 @@ def load_config() -> Config:
 
     private_key_env = os.getenv("PRIVATE_KEY_PATH")
     private_key_path = (
-        Path(private_key_env).expanduser()
-        if private_key_env
-        else (REPO_ROOT / "private-key.pem")
+        Path(private_key_env).expanduser() if private_key_env else (REPO_ROOT / "private-key.pem")
     )
     if not private_key_path.is_absolute():
         private_key_path = (REPO_ROOT / private_key_path).resolve()

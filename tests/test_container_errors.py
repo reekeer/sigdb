@@ -34,9 +34,7 @@ def assert_raises(
             assert_in(msg_contains, str(e), "exception message mismatch")
         return e
     except Exception as e:
-        raise AssertionError(
-            f"expected {exc_type.__name__}, got {type(e).__name__}: {e}"
-        ) from e
+        raise AssertionError(f"expected {exc_type.__name__}, got {type(e).__name__}: {e}") from e
     raise AssertionError(f"expected {exc_type.__name__}, got no exception")
 
 
