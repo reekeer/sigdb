@@ -105,9 +105,7 @@ def build_sigdb(
         raise SigDBFormatError("metadata.public_key does not match signing key")
     header_meta.setdefault("public_key", public_key_hex)
 
-    header_data = json.dumps(
-        header_meta, ensure_ascii=False, separators=(",", ":")
-    ).encode("utf-8")
+    header_data = json.dumps(header_meta, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     if len(header_data) > MAX_HEADER_BYTES:
         raise SigDBFormatError("HEADER_DATA too large")
 
@@ -163,9 +161,7 @@ def load_sigdb(
     max_items_json_size: int = 256 * 1024 * 1024,
     max_automaton_size: int = 512 * 1024 * 1024,
 ) -> SigDBDatabase:
-    header, items_compressed, auto_compressed, stored_hash, signature = _read_container(
-        Path(path)
-    )
+    header, items_compressed, auto_compressed, stored_hash, signature = _read_container(Path(path))
 
     items_raw = decompress_zstd(items_compressed, max_output_size=max_items_json_size)
     auto_raw = decompress_zstd(auto_compressed, max_output_size=max_automaton_size)
@@ -212,9 +208,7 @@ def validate_sigdb(
         ) = _read_container(Path(path))
         pk = public_key_hex or _metadata_public_key(header)
 
-        items_raw = decompress_zstd(
-            items_compressed, max_output_size=max_items_json_size
-        )
+        items_raw = decompress_zstd(items_compressed, max_output_size=max_items_json_size)
         auto_raw = decompress_zstd(auto_compressed, max_output_size=max_automaton_size)
 
         if verify_hash:

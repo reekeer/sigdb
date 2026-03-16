@@ -106,9 +106,7 @@ class SigDBMatcher:
                 ostart = out_start[state]
                 item_id = outputs[ostart]
                 item = self._items[item_id]
-                return SigDBMatchResult(
-                    result=True, item_id=item_id, item=item, head=normalized
-                )
+                return SigDBMatchResult(result=True, item_id=item_id, item=item, head=normalized)
 
         return SigDBMatchResult(result=False, item_id=None, item=None, head=normalized)
 
