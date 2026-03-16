@@ -230,6 +230,22 @@ def pr_head_sha(*, token: str, repo: str, pr_number: int) -> str:
     return sha
 
 
+def pr_changed_files(*, token: str, repo: str, pr_number: int) -> set[str]:
+    url = f"{API}/repos/{repo}/pulls/{pr_number}/files?per_page=100"
+    files: set[str] = set()
+
+    page = gh_request(token, "GET", url)
+    if not isinstance(page, list):
+        return files
+    for item in cast(list[Any], page):
+        if not isinstance(item, dict):
+            continue
+        filename = cast(dict[str, Any], item).get("filename")
+        if isinstance(filename, str) and filename:
+            files.add(filename)
+    return files
+
+
 def _diagnostic_repo_path(file_value: Any) -> str | None:
     if not isinstance(file_value, str) or not file_value:
         return None
@@ -246,6 +262,7 @@ def _diagnostic_repo_path(file_value: Any) -> str | None:
 def review_comments(*, token: str, repo: str, pr_number: int, errors: list[dict[str, Any]]) -> None:
     url = f"{API}/repos/{repo}/pulls/{pr_number}/comments"
     commit_sha = pr_head_sha(token=token, repo=repo, pr_number=pr_number)
+    changed_files = pr_changed_files(token=token, repo=repo, pr_number=pr_number)
 
     posted = 0
     for e in errors:
@@ -258,22 +275,28 @@ def review_comments(*, token: str, repo: str, pr_number: int, errors: list[dict[
             continue
         if repo_path is None:
             continue
+        if changed_files and repo_path not in changed_files:
+            continue
         if not isinstance(start_line, int) or start_line < 0:
             continue
 
-        gh_request(
-            token,
-            "POST",
-            url,
-            data={
-                "body": f"Pyright error:\n{message}",
-                "commit_id": commit_sha,
-                "path": repo_path,
-                "line": start_line + 1,  # Pyright is 0-based; GitHub is 1-based.
-                "side": "RIGHT",
-            },
-        )
-        posted += 1
+        try:
+            gh_request(
+                token,
+                "POST",
+                url,
+                data={
+                    "body": f"Pyright error:\n{message}",
+                    "commit_id": commit_sha,
+                    "path": repo_path,
+                    "line": start_line + 1,
+                    "side": "RIGHT",
+                },
+            )
+        except RuntimeError:
+            continue
+        else:
+            posted += 1
 
 
 def auto_merge(*, token: str, repo: str, pr_number: int) -> None:
