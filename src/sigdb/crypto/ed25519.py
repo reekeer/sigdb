@@ -36,9 +36,7 @@ def sign_hash(data_hash: bytes, *, signing_key_hex: str) -> bytes:
     return key.sign(data_hash).signature
 
 
-def verify_hash_signature(
-    data_hash: bytes, signature: bytes, *, public_key_hex: str
-) -> None:
+def verify_hash_signature(data_hash: bytes, signature: bytes, *, public_key_hex: str) -> None:
     _SigningKey, VerifyKey, BadSignatureError = _import_nacl()
     try:
         verify = VerifyKey(bytes.fromhex(public_key_hex))
