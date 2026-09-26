@@ -1,5 +1,6 @@
 # SignatureDB
 
+[![PyPI](https://img.shields.io/pypi/v/sigdb)](https://pypi.org/project/sigdb/)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](#license)
 [![Format](https://img.shields.io/badge/format-SIGT%20v2-lightgrey)](#file-format)
@@ -10,7 +11,7 @@ Aho-Corasick automaton for fast matching of HTTP headers, HTML, scripts and othe
 ## Install
 
 ```sh
-pip install git+https://github.com/reekeer/sigdb
+pip install sigdb
 ```
 
 Requires Python 3.11+ and `zstandard`.

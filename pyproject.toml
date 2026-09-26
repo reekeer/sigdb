@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.25.0"]
+requires = ["hatchling>=1.27.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -10,11 +10,8 @@ description = ".sigdb trie/Aho–Corasick compiler and loader"
 readme = "README.md"
 requires-python = ">=3.11"
 
-license = { text = "MIT" }
-
-authors = [
-  { name = "reekeer team" }
-]
+license = "MIT"
+license-files = ["LICENSE"]
 
 keywords = [
   "stackscan",
@@ -31,7 +28,6 @@ classifiers = [
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.11",
   "Typing :: Typed",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
 ]
 
@@ -47,6 +43,7 @@ dev = [
 ]
 
 [project.urls]
+Homepage = "https://github.com/reekeer/sigdb"
 Source = "https://github.com/reekeer/sigdb"
 Issues = "https://github.com/reekeer/sigdb/issues"
 
@@ -58,7 +55,7 @@ path = "src/sigdb/__init__.py"
 packages = ["src/sigdb"]
 
 [tool.hatch.build.targets.sdist]
-include = ["README.md", "pyproject.toml", "src/sigdb/**", "typings/**"]
+include = ["README.md", "LICENSE", "pyproject.toml", "src/sigdb/**"]
 
 [tool.hatch.envs.default]
 dependencies = [
