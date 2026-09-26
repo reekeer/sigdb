@@ -1,34 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Literal, TypeAlias, TypedDict
+from typing import Any, Literal, TypeAlias, TypedDict
 
-GroupName: TypeAlias = Literal[
+from sigdb.types.models import GroupKind, MatchMode
+
+BuiltinGroupName: TypeAlias = Literal[
     "headers",
     "js",
     "meta",
-    "html",
-    "script_src",
-    "css",
-    "url",
-    "path",
-    "file",
-    "dns",
-    "subdomain",
-    "link",
-    "json",
-    "api",
-    "tls",
-    "server",
-    "framework",
-    "cms",
-    "cdn",
-]
-
-GroupMapName: TypeAlias = Literal["headers", "meta"]
-
-GroupListName: TypeAlias = Literal[
-    "js",
     "html",
     "script_src",
     "css",
@@ -61,7 +41,15 @@ HtmlPattern: TypeAlias = HtmlSpec | str
 HtmlList: TypeAlias = Sequence[HtmlPattern] | HtmlPattern
 
 
+class GroupConfig(TypedDict, total=False):
+    kind: GroupKind
+    match: MatchMode
+    ignore_case: bool
+    trim: bool
+
+
 class RuleDefinition(TypedDict, total=False):
+    data: Any
     headers: StringMap
     js: StringList
     meta: StringMap
@@ -83,5 +71,11 @@ class RuleDefinition(TypedDict, total=False):
     cdn: StringList
 
 
-Rules: TypeAlias = Mapping[str, RuleDefinition]
-SearchDefinition: TypeAlias = RuleDefinition
+Rules: TypeAlias = Mapping[str, Mapping[str, Any]]
+RulesInput: TypeAlias = Rules | Sequence[Rules]
+SearchDefinition: TypeAlias = Mapping[str, Any]
+
+
+class IndexSpec(TypedDict, total=False):
+    rules: RulesInput
+    groups: Mapping[str, GroupConfig]

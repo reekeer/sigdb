@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+MatchMode = Literal["prefix", "contains", "exact"]
+GroupKind = Literal["list", "map"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -14,18 +17,32 @@ class DecodeResult:
 @dataclass(frozen=True, slots=True)
 class Item:
     key: str
-    headers: dict[str, str]
-
-    def to_compact(self) -> list[object]:
-        # Compact JSON representation: [key, headers]
-        return [self.key, self.headers]
+    data: Any = None
 
 
 @dataclass(frozen=True, slots=True)
-class BuildResult:
-    output_path: Path
-    data_hash_hex: str
-    metadata: dict[str, Any]
+class GroupSpec:
+    name: str
+    kind: GroupKind
+    match: MatchMode
+    ignore_case: bool
+    trim: bool
+
+    def to_json(self) -> dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "match": self.match,
+            "ignore_case": self.ignore_case,
+            "trim": self.trim,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class Pattern:
+    id: int
+    group: str
+    text: str
+    item_ids: tuple[int, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,12 +76,9 @@ class Automaton:
                 return self.next_state[start + mid]
         return -1
 
-
-@dataclass(frozen=True, slots=True)
-class Database:
-    metadata: dict[str, Any]
-    items: list[Item]
-    automaton: Automaton
+    def outputs_of(self, state: int) -> list[int]:
+        start = self.out_start[state]
+        return self.outputs[start : start + self.out_count[state]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,6 +87,30 @@ class MatchResult:
     item_id: int | None
     item: Item | None
     head: str
+    pattern_id: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Hit:
+    item_id: int
+    item: Item
+    hits: int
+    pattern_ids: tuple[int, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Occurrence:
+    pattern_id: int
+    start: int
+    end: int
+
+
+@dataclass(frozen=True, slots=True)
+class BuildResult:
+    output_path: Path
+    size: int
+    metadata: dict[str, Any]
+    sections: dict[str, str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,5 +118,4 @@ class ValidationResult:
     ok: bool
     errors: list[str]
     metadata: dict[str, Any] | None
-    stored_hash_hex: str | None
-    computed_hash_hex: str | None
+    sections: dict[str, str] | None
