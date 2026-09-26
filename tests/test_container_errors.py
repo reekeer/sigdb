@@ -1,81 +1,112 @@
 from __future__ import annotations
 
-from collections.abc import Callable
-from pathlib import Path
-from typing import Any, TypeVar
+import struct
 
-from sigdb.core import build_sigdb, load_sigdb, validate_sigdb
-from sigdb.types import FormatError
+from helpers import assert_eq, assert_raises, assert_true
 
-TExc = TypeVar("TExc", bound=BaseException)
+from sigdb import FormatError, IntegrityError, build_bytes, load_bytes
+from sigdb.compression import compress_zstd
+from sigdb.format.container import parse_container
 
-
-def assert_true(value: bool, msg: str) -> None:
-    if not value:
-        raise AssertionError(msg)
+RULES = {"nginx": {"headers": {"Server": "nginx"}}, "jquery": {"js": "jquery"}}
 
 
-def assert_in(needle: str, haystack: str, msg: str) -> None:
-    if needle not in haystack:
-        raise AssertionError(f"{msg}: {needle!r} not in {haystack!r}")
+def _sections_offset(data: bytes) -> int:
+    header_len = struct.unpack(">I", data[5:9])[0]
+    return 9 + header_len
 
 
-def assert_raises(
-    exc_type: type[TExc],
-    fn: Callable[[], object],
-    *,
-    msg_contains: str | None = None,
-) -> TExc:
-    try:
-        fn()
-    except exc_type as e:
-        if msg_contains is not None:
-            assert_in(msg_contains, str(e), "exception message mismatch")
-        return e
-    except Exception as e:
-        raise AssertionError(f"expected {exc_type.__name__}, got {type(e).__name__}: {e}") from e
-    raise AssertionError(f"expected {exc_type.__name__}, got no exception")
+def _table(data: bytes) -> list[tuple[str, int, int, int]]:
+    pos = _sections_offset(data)
+    count = struct.unpack(">H", data[pos : pos + 2])[0]
+    pos += 2
+    out: list[tuple[str, int, int, int]] = []
+    for _ in range(count):
+        name_len = data[pos]
+        name = data[pos + 1 : pos + 1 + name_len].decode()
+        pos += 1 + name_len
+        raw_size, body_size = struct.unpack(">II", data[pos : pos + 8])
+        out.append((name, raw_size, body_size, pos))
+        pos += 8 + 32
+    return out
 
 
 def main() -> None:
-    out = Path(__file__).with_name("test_trailing_data.sigdb")
-    out_bad = Path(__file__).with_name("test_trailing_data_extra.sigdb")
+    data = build_bytes(RULES)
+    assert_eq(data[:4], b"SIGT", "magic")
+    assert_eq(data[4], 3, "version byte")
+    names = [t[0] for t in _table(data)]
+    assert_eq(
+        names,
+        ["index/main", "automaton/main/headers", "automaton/main/js"],
+        "section order",
+    )
 
-    rules: dict[str, Any] = {
-        "nginx": {"headers": {"Server": "nginx"}},
-    }
+    assert_raises(
+        FormatError, lambda: load_bytes(b"NOPE" + b"\x00" * 16), msg_contains="invalid magic"
+    )
+    for version, text in ((1, "legacy signed format"), (2, "single-automaton format")):
+        assert_raises(
+            FormatError,
+            lambda v=version: load_bytes(b"SIGT" + bytes([v]) + b"\x00" * 16),
+            msg_contains=text,
+        )
+    assert_raises(
+        FormatError,
+        lambda: load_bytes(b"SIGT\x04" + b"\x00" * 16),
+        msg_contains="unsupported sigdb version: 4",
+    )
+    assert_raises(FormatError, lambda: load_bytes(data + b"\x00"), msg_contains="trailing data")
+    assert_raises(FormatError, lambda: load_bytes(data[:-1]), msg_contains="unexpected EOF")
+    assert_raises(FormatError, lambda: load_bytes(data[:7]), msg_contains="unexpected EOF")
 
-    metadata: dict[str, Any] = {
-        "dataset": "Example",
-        "version": "1.0.0",
-        "author": "Container Checker",
-        "contact": "container@reekeer.hidden",
-        "license": "MIT",
-        "repository": "https://github.com/reekeer/sigdb",
-        "homepage": "https://reekeer.com",
-        "description": "Container layout tests",
-    }
+    name, _, _, pos = _table(data)[0]
+    corrupted = bytearray(data)
+    corrupted[pos + 8] ^= 0x01
+    db = load_bytes(bytes(corrupted))
+    assert_raises(
+        IntegrityError, lambda: db.index(), msg_contains=f"hash mismatch in section {name}"
+    )
+    assert_true(
+        load_bytes(bytes(corrupted), verify_hash=False).index().items[0].key == "nginx", "no verify"
+    )
 
-    build_sigdb(rules=rules, output_path=out, metadata=metadata)
+    lazy = load_bytes(bytes(corrupted))
+    assert_eq(lazy.metadata["format"], "SIGDB", "header is readable without touching sections")
 
-    out_bad.write_bytes(out.read_bytes() + b"\x00")
+    wrong_size = bytearray(data)
+    struct.pack_into(">I", wrong_size, pos, _table(data)[0][1] + 1)
+    assert_raises(
+        FormatError,
+        lambda: load_bytes(bytes(wrong_size)).index(),
+        msg_contains="zstd frame size does not match section size",
+    )
+
+    bomb = compress_zstd(b"a" * 10_000_000, level=1)
+    head = bytearray(b"SIGT\x03")
+    head += struct.pack(">I", 2) + b"{}"
+    head += struct.pack(">H", 1)
+    head += bytes([10]) + b"index/main" + struct.pack(">II", 100, len(bomb)) + b"\x00" * 32
+    container = parse_container(bytes(head) + bomb)
+    assert_raises(FormatError, lambda: container.raw("index/main"), msg_contains="zstd frame size")
 
     assert_raises(
         FormatError,
-        lambda: load_sigdb(out_bad),
-        msg_contains="trailing data after hash",
+        lambda: parse_container(bytes(head) + bomb, max_section_size=10).raw("index/main"),
+        msg_contains="exceeds max_section_size",
     )
 
-    v = validate_sigdb(out_bad)
-    assert_true(not v.ok, "validate_sigdb must fail for trailing data")
-    assert_true(len(v.errors) > 0, "validate_sigdb must report errors")
-    assert_true(
-        any("trailing data after hash" in e for e in v.errors),
-        "missing expected error",
+    garbage = bytearray(b"SIGT\x03") + struct.pack(">I", 2) + b"{}" + struct.pack(">H", 1)
+    body = compress_zstd(b"\xff\xff", level=1)
+    garbage += bytes([10]) + b"index/main" + struct.pack(">II", 2, len(body)) + b"\x00" * 32 + body
+    assert_raises(
+        FormatError,
+        lambda: load_bytes(bytes(garbage), verify_hash=False).index(),
+        msg_contains="invalid index main json",
     )
 
-    out.unlink()
-    out_bad.unlink()
+    only_json = bytearray(b"SIGT\x03") + struct.pack(">I", 2) + b"{}" + struct.pack(">H", 0)
+    assert_raises(FormatError, lambda: load_bytes(bytes(only_json)), msg_contains="no indexes")
 
 
 if __name__ == "__main__":

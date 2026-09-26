@@ -9,8 +9,16 @@
       "item_id": 0,
       "key": "headers-rule",
       "head": "x-generator:drupal 10 (https://www.drupal.org)",
-      "all_ids": [
-        0
+      "pattern_id": 0,
+      "all": [
+        [
+          0,
+          "headers-rule",
+          1,
+          [
+            0
+          ]
+        ]
       ]
     }
   },
@@ -22,9 +30,17 @@
       "result": true,
       "item_id": 1,
       "key": "js-rule",
-      "head": "js:react",
-      "all_ids": [
-        1
+      "head": "react",
+      "pattern_id": 1,
+      "all": [
+        [
+          1,
+          "js-rule",
+          1,
+          [
+            1
+          ]
+        ]
       ]
     }
   },
@@ -37,9 +53,17 @@
       "result": true,
       "item_id": 2,
       "key": "meta-rule",
-      "head": "meta:generator:wordpress 6.4.2",
-      "all_ids": [
-        2
+      "head": "generator:wordpress 6.4.2",
+      "pattern_id": 2,
+      "all": [
+        [
+          2,
+          "meta-rule",
+          1,
+          [
+            2
+          ]
+        ]
       ]
     }
   },
@@ -51,8 +75,9 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": "script_src:https://cdn.jsdelivr.net/npm/vue@3",
-      "all_ids": []
+      "head": "https://cdn.jsdelivr.net/npm/vue@3",
+      "pattern_id": null,
+      "all": []
     }
   },
   {
@@ -63,8 +88,9 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": "css:/static/bootstrap.min.css",
-      "all_ids": []
+      "head": "/static/bootstrap.min.css",
+      "pattern_id": null,
+      "all": []
     }
   },
   {
@@ -75,8 +101,9 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": "url:https://example.com/wp-admin/",
-      "all_ids": []
+      "head": "https://example.com/wp-admin/",
+      "pattern_id": null,
+      "all": []
     }
   },
   {
@@ -87,9 +114,17 @@
       "result": true,
       "item_id": 12,
       "key": "path-rule",
-      "head": "path:/.git/head",
-      "all_ids": [
-        12
+      "head": "/.git/head",
+      "pattern_id": 13,
+      "all": [
+        [
+          12,
+          "path-rule",
+          1,
+          [
+            13
+          ]
+        ]
       ]
     }
   },
@@ -101,9 +136,17 @@
       "result": true,
       "item_id": 13,
       "key": "file-rule",
-      "head": "file:composer.json",
-      "all_ids": [
-        13
+      "head": "composer.json",
+      "pattern_id": 14,
+      "all": [
+        [
+          13,
+          "file-rule",
+          1,
+          [
+            14
+          ]
+        ]
       ]
     }
   },
@@ -115,9 +158,17 @@
       "result": true,
       "item_id": 14,
       "key": "dns-rule",
-      "head": "dns:v=spf1 include:_spf.google.com ~all",
-      "all_ids": [
-        14
+      "head": "v=spf1 include:_spf.google.com ~all",
+      "pattern_id": 15,
+      "all": [
+        [
+          14,
+          "dns-rule",
+          1,
+          [
+            15
+          ]
+        ]
       ]
     }
   },
@@ -129,9 +180,17 @@
       "result": true,
       "item_id": 15,
       "key": "subdomain-rule",
-      "head": "subdomain:jenkins.example.com",
-      "all_ids": [
-        15
+      "head": "jenkins.example.com",
+      "pattern_id": 16,
+      "all": [
+        [
+          15,
+          "subdomain-rule",
+          1,
+          [
+            16
+          ]
+        ]
       ]
     }
   },
@@ -143,8 +202,9 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": "link:<https://fonts.gstatic.com>; rel=preconnect",
-      "all_ids": []
+      "head": "<https://fonts.gstatic.com>; rel=preconnect",
+      "pattern_id": null,
+      "all": []
     }
   },
   {
@@ -155,8 +215,9 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": "json:{\"__next_data__\":{}}",
-      "all_ids": []
+      "head": "{\"__next_data__\":{}}",
+      "pattern_id": null,
+      "all": []
     }
   },
   {
@@ -167,9 +228,17 @@
       "result": true,
       "item_id": 9,
       "key": "script-src-rule",
-      "head": "script_src:cdn.jsdelivr.net/npm/vue@3",
-      "all_ids": [
-        9
+      "head": "cdn.jsdelivr.net/npm/vue@3",
+      "pattern_id": 10,
+      "all": [
+        [
+          9,
+          "script-src-rule",
+          1,
+          [
+            10
+          ]
+        ]
       ]
     }
   },
@@ -181,9 +250,17 @@
       "result": true,
       "item_id": 10,
       "key": "css-rule",
-      "head": "css:bootstrap.min.css?v=5",
-      "all_ids": [
-        10
+      "head": "bootstrap.min.css?v=5",
+      "pattern_id": 11,
+      "all": [
+        [
+          10,
+          "css-rule",
+          1,
+          [
+            11
+          ]
+        ]
       ]
     }
   },
@@ -195,9 +272,17 @@
       "result": true,
       "item_id": 11,
       "key": "url-rule",
-      "head": "url:/wp-admin/index.php",
-      "all_ids": [
-        11
+      "head": "/wp-admin/index.php",
+      "pattern_id": 12,
+      "all": [
+        [
+          11,
+          "url-rule",
+          1,
+          [
+            12
+          ]
+        ]
       ]
     }
   },
@@ -209,9 +294,17 @@
       "result": true,
       "item_id": 16,
       "key": "link-rule",
-      "head": "link:rel=preconnect; crossorigin",
-      "all_ids": [
-        16
+      "head": "rel=preconnect; crossorigin",
+      "pattern_id": 17,
+      "all": [
+        [
+          16,
+          "link-rule",
+          1,
+          [
+            17
+          ]
+        ]
       ]
     }
   },
@@ -223,9 +316,17 @@
       "result": true,
       "item_id": 17,
       "key": "json-rule",
-      "head": "json:\"__next_data__\"",
-      "all_ids": [
-        17
+      "head": "\"__next_data__\"",
+      "pattern_id": 18,
+      "all": [
+        [
+          17,
+          "json-rule",
+          1,
+          [
+            18
+          ]
+        ]
       ]
     }
   },
@@ -237,9 +338,17 @@
       "result": true,
       "item_id": 18,
       "key": "api-rule",
-      "head": "api:/graphql",
-      "all_ids": [
-        18
+      "head": "/graphql",
+      "pattern_id": 19,
+      "all": [
+        [
+          18,
+          "api-rule",
+          1,
+          [
+            19
+          ]
+        ]
       ]
     }
   },
@@ -251,9 +360,17 @@
       "result": true,
       "item_id": 19,
       "key": "tls-rule",
-      "head": "tls:let's encrypt r3",
-      "all_ids": [
-        19
+      "head": "let's encrypt r3",
+      "pattern_id": 20,
+      "all": [
+        [
+          19,
+          "tls-rule",
+          1,
+          [
+            20
+          ]
+        ]
       ]
     }
   },
@@ -265,9 +382,17 @@
       "result": true,
       "item_id": 20,
       "key": "server-rule",
-      "head": "server:caddy",
-      "all_ids": [
-        20
+      "head": "caddy",
+      "pattern_id": 21,
+      "all": [
+        [
+          20,
+          "server-rule",
+          1,
+          [
+            21
+          ]
+        ]
       ]
     }
   },
@@ -279,9 +404,17 @@
       "result": true,
       "item_id": 21,
       "key": "framework-rule",
-      "head": "framework:django 5",
-      "all_ids": [
-        21
+      "head": "django 5",
+      "pattern_id": 22,
+      "all": [
+        [
+          21,
+          "framework-rule",
+          1,
+          [
+            22
+          ]
+        ]
       ]
     }
   },
@@ -293,9 +426,17 @@
       "result": true,
       "item_id": 22,
       "key": "cms-rule",
-      "head": "cms:ghost 5.0",
-      "all_ids": [
-        22
+      "head": "ghost 5.0",
+      "pattern_id": 23,
+      "all": [
+        [
+          22,
+          "cms-rule",
+          1,
+          [
+            23
+          ]
+        ]
       ]
     }
   },
@@ -307,9 +448,17 @@
       "result": true,
       "item_id": 23,
       "key": "cdn-rule",
-      "head": "cdn:akamaighost",
-      "all_ids": [
-        23
+      "head": "akamaighost",
+      "pattern_id": 24,
+      "all": [
+        [
+          23,
+          "cdn-rule",
+          1,
+          [
+            24
+          ]
+        ]
       ]
     }
   },
@@ -321,9 +470,17 @@
       "result": true,
       "item_id": 3,
       "key": "html-string",
-      "head": "html:tag:canvas",
-      "all_ids": [
-        3
+      "head": "tag:canvas",
+      "pattern_id": 3,
+      "all": [
+        [
+          3,
+          "html-string",
+          1,
+          [
+            3
+          ]
+        ]
       ]
     }
   },
@@ -335,8 +492,9 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": "js:vue",
-      "all_ids": []
+      "head": "vue",
+      "pattern_id": null,
+      "all": []
     }
   },
   {
@@ -347,8 +505,9 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": "cdn:fastly",
-      "all_ids": []
+      "head": "fastly",
+      "pattern_id": null,
+      "all": []
     }
   },
   {
@@ -385,7 +544,8 @@
       "result": true,
       "item_id": 3,
       "key": "html-string",
-      "head": "html:tag:canvas"
+      "head": "tag:canvas",
+      "pattern_id": 3
     }
   },
   {
@@ -395,7 +555,8 @@
       "result": true,
       "item_id": 4,
       "key": "html-tag",
-      "head": "html:tag:svelte-app"
+      "head": "tag:svelte-app",
+      "pattern_id": 4
     }
   },
   {
@@ -405,7 +566,8 @@
       "result": true,
       "item_id": 5,
       "key": "html-tag-attr",
-      "head": "html:tag:div:attr:data-reactroot"
+      "head": "tag:div:attr:data-reactroot",
+      "pattern_id": 5
     }
   },
   {
@@ -415,7 +577,8 @@
       "result": true,
       "item_id": 6,
       "key": "html-attr-value",
-      "head": "html:attr:ng-version:value:17.0.1"
+      "head": "attr:ng-version:value:17.0.1",
+      "pattern_id": 6
     }
   },
   {
@@ -425,7 +588,8 @@
       "result": true,
       "item_id": 6,
       "key": "html-attr-value",
-      "head": "html:attr:ng-version:value:17"
+      "head": "attr:ng-version:value:17",
+      "pattern_id": 6
     }
   },
   {
@@ -435,7 +599,8 @@
       "result": true,
       "item_id": 7,
       "key": "html-full",
-      "head": "html:tag:meta:attr:name:value:shopify-checkout-api-token"
+      "head": "tag:meta:attr:name:value:shopify-checkout-api-token",
+      "pattern_id": 7
     }
   },
   {
@@ -445,7 +610,8 @@
       "result": true,
       "item_id": 7,
       "key": "html-full",
-      "head": "html:tag:meta:attr:name:value:shopify-checkout-api-token"
+      "head": "tag:meta:attr:name:value:shopify-checkout-api-token",
+      "pattern_id": 7
     }
   },
   {
@@ -455,7 +621,8 @@
       "result": true,
       "item_id": 8,
       "key": "html-list",
-      "head": "html:tag:blink"
+      "head": "tag:blink",
+      "pattern_id": 8
     }
   },
   {
@@ -465,7 +632,8 @@
       "result": true,
       "item_id": 8,
       "key": "html-list",
-      "head": "html:attr:data-turbo"
+      "head": "attr:data-turbo",
+      "pattern_id": 9
     }
   },
   {
@@ -475,7 +643,8 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": ""
+      "head": "",
+      "pattern_id": null
     }
   },
   {
@@ -485,7 +654,8 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": ""
+      "head": "",
+      "pattern_id": null
     }
   },
   {
@@ -500,7 +670,8 @@
       "result": true,
       "item_id": 2,
       "key": "meta-rule",
-      "head": "meta:generator:wordpress 6"
+      "head": "generator:wordpress 6",
+      "pattern_id": 2
     }
   },
   {
@@ -516,7 +687,8 @@
       "result": true,
       "item_id": 1,
       "key": "js-rule",
-      "head": "js:react"
+      "head": "react",
+      "pattern_id": 1
     }
   },
   {
@@ -530,7 +702,8 @@
       "result": true,
       "item_id": 3,
       "key": "html-string",
-      "head": "html:tag:canvas"
+      "head": "tag:canvas",
+      "pattern_id": 3
     }
   },
   {
@@ -544,7 +717,8 @@
       "result": false,
       "item_id": null,
       "key": null,
-      "head": ""
+      "head": "",
+      "pattern_id": null
     }
   }
 ]

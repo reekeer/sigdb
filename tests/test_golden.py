@@ -2,112 +2,148 @@ from __future__ import annotations
 
 import json
 import sys
-import tempfile
 from pathlib import Path
 from typing import Any, cast
 
-from sigdb.core import Matcher, compile_sigdb_json, load_sigdb
-from sigdb.types import Database, Error, MatchResult
+from sigdb import Database, Error, build_bytes, load_bytes
+from sigdb.types import Hit, MatchResult
 
 GOLDEN_DIR = Path(__file__).with_name("golden")
 
 
-def _all_ids(db: Database, head: str) -> list[int]:
-    # Every item id reported while scanning `head`, in order of first appearance.
-    # `head` must already be normalized (MatchResult.head).
-    a = db.automaton
-    seen: list[int] = []
-    state = 0
-    for b in head.encode("utf-8"):
-        while True:
-            nxt = a.transition(state, b)
-            if nxt != -1:
-                state = nxt
-                break
-            if state == 0:
-                break
-            state = a.fail[state]
-        start = a.out_start[state]
-        for item_id in a.outputs[start : start + a.out_count[state]]:
-            if item_id not in seen:
-                seen.append(item_id)
-    return seen
-
-
-def _result(db: Database, r: MatchResult, *, with_all_ids: bool) -> dict[str, Any]:
-    out: dict[str, Any] = {
+def _result(r: MatchResult) -> dict[str, Any]:
+    return {
         "result": r.result,
         "item_id": r.item_id,
         "key": r.item.key if r.item is not None else None,
         "head": r.head,
+        "pattern_id": r.pattern_id,
     }
-    if with_all_ids:
-        out["all_ids"] = _all_ids(db, r.head)
-    return out
 
 
-def _run(db: Database, vector: dict[str, Any]) -> dict[str, Any]:
-    m = Matcher(db)
+def _hits(hits: list[Hit]) -> list[list[Any]]:
+    return [[h.item_id, h.item.key, h.hits, list(h.pattern_ids)] for h in hits]
+
+
+def _run(db: Database, vector: dict[str, Any]) -> Any:
     call = vector["call"]
     try:
+        index = db.index(vector.get("index", "main"))
         if call == "match":
-            return _result(db, m.match(vector["head"]), with_all_ids=True)
+            out = _result(index.match(vector["head"]))
+            out["all"] = _hits(index.match_all("headers", vector["head"]))
+            return out
         if call == "match_group":
-            r = m.match_group(vector["group"], vector["value"], name=vector.get("name"))
-            return _result(db, r, with_all_ids=True)
+            group, value, name = vector["group"], vector["value"], vector.get("name")
+            out = _result(index.match_group(group, value, name=name))
+            out["all"] = _hits(index.match_all(group, {name: value} if name else [value]))
+            return out
         if call == "match_html":
-            return _result(db, m.match_html(vector["html"]), with_all_ids=False)
+            return _result(index.match_html(vector["html"]))
         if call == "match_search":
-            return _result(db, m.match_search(vector["search"]), with_all_ids=False)
+            return _result(index.match_search(vector["search"]))
+        if call == "match_all":
+            return _hits(index.match_all(vector["group"], vector["values"]))
+        if call == "match_tokens":
+            counts = index.match_tokens(vector["group"], vector["tokens"])
+            return [[item_id, count] for item_id, count in counts.items()]
+        if call == "scan":
+            return [
+                [o.pattern_id, o.start, o.end, index.pattern(o.pattern_id).text]
+                for o in index.scan(vector["text"], vector["group"])
+            ]
+        if call == "item":
+            item = index.item(vector["key"])
+            return None if item is None else [index.item_id(vector["key"]), item.data]
+        if call == "items_with_prefix":
+            return [item.key for item in index.items_with_prefix(vector["prefix"])]
+        if call == "pattern_count":
+            return index.pattern_count(vector["item_id"], vector.get("group"))
+        if call == "section":
+            value = db.section(vector["name"])
+            return {"hex": value.hex()} if isinstance(value, bytes) else value
     except Error as e:
         return {"error": type(e).__name__, "message": str(e)}
     raise AssertionError(f"unknown call: {call}")
 
 
-def _compile(case_dir: Path, tmp: Path) -> Database:
-    out = tmp / f"{case_dir.name}.sigdb"
-    compile_sigdb_json(json_path=case_dir / "rules.json", output_path=out)
-    return load_sigdb(out)
+def _build_args(case_dir: Path) -> dict[str, Any]:
+    build_path = case_dir / "build.json"
+    if build_path.is_file():
+        args = cast(dict[str, Any], json.loads(build_path.read_bytes()))
+    else:
+        args = {"rules": json.loads((case_dir / "rules.json").read_bytes())}
+    sections = args.get("sections")
+    if isinstance(sections, dict):
+        for name, value in list(cast(dict[str, Any], sections).items()):
+            if isinstance(value, dict) and set(cast(dict[str, Any], value)) == {"hex"}:
+                sections[name] = bytes.fromhex(cast(dict[str, str], value)["hex"])
+    return args
 
 
-def _check_item_keys(case_dir: Path, db: Database) -> None:
-    # Item ids are assigned in rule-definition order.
-    rules = cast(dict[str, Any], json.loads((case_dir / "rules.json").read_bytes()))
-    keys = [item.key for item in db.items]
-    if keys != list(rules):
-        raise AssertionError(f"{case_dir.name}: item order mismatch: {keys} != {list(rules)}")
+def _build_error(args: dict[str, Any]) -> dict[str, str] | None:
+    try:
+        build_bytes(**args)
+    except Error as e:
+        return {"error": type(e).__name__, "message": str(e)}
+    return None
+
+
+def _write_json(path: Path, value: Any) -> None:
+    path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def main(argv: list[str]) -> None:
     regen = "--regen" in argv
-    case_dirs = sorted(p for p in GOLDEN_DIR.iterdir() if (p / "rules.json").is_file())
+    case_dirs = sorted(
+        p
+        for p in GOLDEN_DIR.iterdir()
+        if (p / "rules.json").is_file() or (p / "build.json").is_file()
+    )
     if not case_dirs:
         raise AssertionError("no golden cases found")
 
     failures: list[str] = []
-    with tempfile.TemporaryDirectory() as tmp_s:
-        tmp = Path(tmp_s)
-        for case_dir in case_dirs:
-            db = _compile(case_dir, tmp)
-            _check_item_keys(case_dir, db)
+    for case_dir in case_dirs:
+        data = build_bytes(**_build_args(case_dir))
+        if data != build_bytes(**_build_args(case_dir)):
+            failures.append(f"{case_dir.name}: build is not reproducible")
+        db = load_bytes(data)
 
-            vectors_path = case_dir / "vectors.json"
-            vectors = cast(list[dict[str, Any]], json.loads(vectors_path.read_bytes()))
-            for i, vector in enumerate(vectors):
-                actual = _run(db, vector)
-                if regen:
-                    vector["expect"] = actual
-                elif vector.get("expect") != actual:
-                    inputs = {k: v for k, v in vector.items() if k != "expect"}
-                    failures.append(
-                        f"{case_dir.name}[{i}] {json.dumps(inputs)}\n"
-                        f"  expected: {json.dumps(vector.get('expect'))}\n"
-                        f"  actual:   {json.dumps(actual)}"
-                    )
+        digests_path = case_dir / "sections.json"
+        digests = db.section_digests()
+        if regen:
+            _write_json(digests_path, digests)
+        elif json.loads(digests_path.read_bytes()) != digests:
+            failures.append(f"{case_dir.name}: section digests changed: {json.dumps(digests)}")
 
+        vectors_path = case_dir / "vectors.json"
+        vectors = cast(list[dict[str, Any]], json.loads(vectors_path.read_bytes()))
+        for i, vector in enumerate(vectors):
+            actual = _run(db, vector)
             if regen:
-                text = json.dumps(vectors, indent=2, ensure_ascii=False) + "\n"
-                vectors_path.write_text(text, encoding="utf-8")
+                vector["expect"] = actual
+            elif vector.get("expect") != actual:
+                inputs = {k: v for k, v in vector.items() if k != "expect"}
+                failures.append(
+                    f"{case_dir.name}[{i}] {json.dumps(inputs)}\n"
+                    f"  expected: {json.dumps(vector.get('expect'))}\n"
+                    f"  actual:   {json.dumps(actual)}"
+                )
+        if regen:
+            _write_json(vectors_path, vectors)
+
+    errors_path = GOLDEN_DIR / "build_errors.json"
+    cases = cast(list[dict[str, Any]], json.loads(errors_path.read_bytes()))
+    for i, case in enumerate(cases):
+        actual = _build_error(case["build"])
+        if regen:
+            case["expect"] = actual
+        elif case.get("expect") != actual:
+            expected = json.dumps(case.get("expect"))
+            failures.append(f"build_errors[{i}] expected {expected} got {json.dumps(actual)}")
+    if regen:
+        _write_json(errors_path, cases)
 
     if failures:
         raise AssertionError("golden vector mismatch:\n" + "\n".join(failures))
