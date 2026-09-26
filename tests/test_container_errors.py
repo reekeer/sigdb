@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from sigdb.core import build_sigdb, load_sigdb, validate_sigdb
-from sigdb.crypto import derive_public_key_hex, generate_signing_key_hex
 from sigdb.types import SigDBFormatError
 
 TExc = TypeVar("TExc", bound=BaseException)
@@ -57,32 +56,26 @@ def main() -> None:
         "description": "Container layout tests",
     }
 
-    signing_key_hex = generate_signing_key_hex()
-    public_key_hex = derive_public_key_hex(signing_key_hex)
-    metadata["public_key"] = public_key_hex
-
-    build_sigdb(
-        rules=rules,
-        output_path=out,
-        metadata=metadata,
-        signing_key_hex=signing_key_hex,
-    )
+    build_sigdb(rules=rules, output_path=out, metadata=metadata)
 
     out_bad.write_bytes(out.read_bytes() + b"\x00")
 
     assert_raises(
         SigDBFormatError,
         lambda: load_sigdb(out_bad),
-        msg_contains="trailing data after signature",
+        msg_contains="trailing data after hash",
     )
 
     v = validate_sigdb(out_bad)
     assert_true(not v.ok, "validate_sigdb must fail for trailing data")
     assert_true(len(v.errors) > 0, "validate_sigdb must report errors")
     assert_true(
-        any("trailing data after signature" in e for e in v.errors),
+        any("trailing data after hash" in e for e in v.errors),
         "missing expected error",
     )
+
+    out.unlink()
+    out_bad.unlink()
 
 
 if __name__ == "__main__":

@@ -269,7 +269,7 @@ class SigDBReader:
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
         self._cache_db: SigDBDatabase | None = None
-        self._cache_params: tuple[str | None, bool, bool] | None = None
+        self._cache_verify_hash: bool | None = None
 
     @property
     def path(self) -> Path:
@@ -278,66 +278,21 @@ class SigDBReader:
     def metadata(self) -> dict[str, Any]:
         return read_sigdb_metadata(self._path)
 
-    def validate(
-        self,
-        *,
-        public_key_hex: str | None = None,
-        verify_hash: bool = True,
-        verify_signature: bool = True,
-    ) -> SigDBValidationResult:
-        return validate_sigdb(
-            self._path,
-            public_key_hex=public_key_hex,
-            verify_hash=verify_hash,
-            verify_signature=verify_signature,
-        )
+    def validate(self, *, verify_hash: bool = True) -> SigDBValidationResult:
+        return validate_sigdb(self._path, verify_hash=verify_hash)
 
-    def load(
-        self,
-        *,
-        public_key_hex: str | None = None,
-        verify_hash: bool = True,
-        verify_signature: bool = True,
-    ) -> SigDBDatabase:
-        return load_sigdb(
-            self._path,
-            public_key_hex=public_key_hex,
-            verify_hash=verify_hash,
-            verify_signature=verify_signature,
-        )
+    def load(self, *, verify_hash: bool = True) -> SigDBDatabase:
+        return load_sigdb(self._path, verify_hash=verify_hash)
 
-    def load_cached(
-        self,
-        *,
-        public_key_hex: str | None = None,
-        verify_hash: bool = True,
-        verify_signature: bool = True,
-    ) -> SigDBDatabase:
-        params = (public_key_hex, verify_hash, verify_signature)
-        if self._cache_db is not None and self._cache_params == params:
+    def load_cached(self, *, verify_hash: bool = True) -> SigDBDatabase:
+        if self._cache_db is not None and self._cache_verify_hash == verify_hash:
             return self._cache_db
-        self._cache_db = self.load(
-            public_key_hex=public_key_hex,
-            verify_hash=verify_hash,
-            verify_signature=verify_signature,
-        )
-        self._cache_params = params
+        self._cache_db = self.load(verify_hash=verify_hash)
+        self._cache_verify_hash = verify_hash
         return self._cache_db
 
-    def matcher(
-        self,
-        *,
-        public_key_hex: str | None = None,
-        verify_hash: bool = True,
-        verify_signature: bool = True,
-    ) -> SigDBMatcher:
-        return SigDBMatcher(
-            self.load_cached(
-                public_key_hex=public_key_hex,
-                verify_hash=verify_hash,
-                verify_signature=verify_signature,
-            )
-        )
+    def matcher(self, *, verify_hash: bool = True) -> SigDBMatcher:
+        return SigDBMatcher(self.load_cached(verify_hash=verify_hash))
 
     def match(self, head: str) -> SigDBMatchResult:
         return self.matcher().match(head)

@@ -24,10 +24,7 @@ class SigDBItem:
 @dataclass(frozen=True, slots=True)
 class SigDBBuildResult:
     output_path: Path
-    public_key_hex: str
-    signing_key_hex: str | None
     data_hash_hex: str
-    signature_hex: str
     metadata: dict[str, Any]
 
 
@@ -83,7 +80,5 @@ class SigDBValidationResult:
     ok: bool
     errors: list[str]
     metadata: dict[str, Any] | None
-    public_key_hex: str | None
     stored_hash_hex: str | None
     computed_hash_hex: str | None
-    signature_ok: bool | None

@@ -12,6 +12,3 @@ class SigDBFormatError(SigDBError):
 class SigDBIntegrityError(SigDBError):
     pass
 
-
-class SigDBSignatureError(SigDBError):
-    pass

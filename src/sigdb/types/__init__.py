@@ -4,7 +4,6 @@ from sigdb.types.exceptions import (
     SigDBError,
     SigDBFormatError,
     SigDBIntegrityError,
-    SigDBSignatureError,
 )
 from sigdb.types.models import (
     Automaton,
@@ -46,6 +45,5 @@ __all__ = [
     "SigDBRuleDefinition",
     "SigDBRules",
     "SigDBSearchDefinition",
-    "SigDBSignatureError",
     "SigDBValidationResult",
 ]

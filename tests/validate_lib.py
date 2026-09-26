@@ -12,12 +12,10 @@ from sigdb.core import (
     read_sigdb_metadata,
     validate_sigdb,
 )
-from sigdb.crypto import derive_public_key_hex, generate_signing_key_hex
 from sigdb.types import (
     SigDBFormatError,
     SigDBIntegrityError,
     SigDBItem,
-    SigDBSignatureError,
 )
 
 TExc = TypeVar("TExc", bound=BaseException)
@@ -55,13 +53,13 @@ def assert_raises(
     raise AssertionError(f"expected {exc_type.__name__}, got no exception")
 
 
-def _read_container_offsets(path: Path) -> tuple[int, int, int]:
+def _read_container_offsets(path: Path) -> tuple[int, int]:
     with path.open("rb") as f:
         magic = f.read(4)
         if magic != b"SIGT":
             raise AssertionError("unexpected magic in test file")
         version = f.read(1)
-        if version != b"\x01":
+        if version != b"\x02":
             raise AssertionError("unexpected version in test file")
 
         header_len = struct.unpack(">I", f.read(4))[0]
@@ -73,10 +71,7 @@ def _read_container_offsets(path: Path) -> tuple[int, int, int]:
         auto_len = struct.unpack(">I", f.read(4))[0]
         f.seek(auto_len, 1)
 
-        data_hash_off = f.tell()
-        data_hash_len = 32
-        sig_off = data_hash_off + data_hash_len
-        return data_hash_off, data_hash_len, sig_off
+        return f.tell(), 32
 
 
 def main() -> None:
@@ -99,29 +94,19 @@ def main() -> None:
         "description": "Example .sigdb dataset to test validity",
     }
 
-    signing_key_hex = generate_signing_key_hex()
-    public_key_hex = derive_public_key_hex(signing_key_hex)
-    metadata["public_key"] = public_key_hex
-
-    result = build_sigdb(
-        rules=rules,
-        output_path=out,
-        metadata=metadata,
-        signing_key_hex=signing_key_hex,
-    )
-    assert_eq(result.public_key_hex, public_key_hex, "public key mismatch")
+    result = build_sigdb(rules=rules, output_path=out, metadata=metadata)
+    assert_eq(len(result.data_hash_hex), 64, "data hash length mismatch")
 
     meta = read_sigdb_metadata(out)
     for k, v in metadata.items():
         assert_eq(meta.get(k), v, f"metadata mismatch for {k}")
     assert_eq(meta.get("format"), "SIGDB-TRIE", "missing default format")
-    assert_eq(meta.get("certificate"), "ed25519", "missing default certificate")
-    assert_eq(meta.get("signature_algorithm"), "ed25519", "missing signature algorithm")
+    for k in ("certificate", "signature_algorithm", "public_key"):
+        assert_true(k not in meta, f"unexpected signing metadata key {k}")
 
     v = validate_sigdb(out)
     assert_true(v.ok, f"validate_sigdb failed: {v.errors}")
     assert_eq(v.errors, [], "validate_sigdb errors not empty")
-    assert_eq(v.signature_ok, True, "signature_ok must be True")
     assert_true(
         v.stored_hash_hex is not None and v.computed_hash_hex is not None,
         "hash hex values missing",
@@ -129,7 +114,7 @@ def main() -> None:
     assert_eq(v.stored_hash_hex, v.computed_hash_hex, "hash mismatch in validator")
 
     reader = SigDBReader(out)
-    db = reader.load(public_key_hex=public_key_hex)
+    db = reader.load()
     expected_items = [
         SigDBItem(key="nginx", headers={"Server": "nginx"}),
         SigDBItem(key="cloudflare", headers={"Server": "cloudflare"}),
@@ -142,19 +127,6 @@ def main() -> None:
         msg_contains="rules must be a JSON object",
     )
 
-    bad_meta = dict(metadata)
-    bad_meta["public_key"] = "00" * 32
-    assert_raises(
-        SigDBFormatError,
-        lambda: build_sigdb(
-            rules=rules,
-            output_path=out,
-            metadata=bad_meta,
-            signing_key_hex=signing_key_hex,
-        ),
-        msg_contains="metadata.public_key does not match signing key",
-    )
-
     bad_file = Path(__file__).with_name("test_invalid_magic.sigdb")
     bad_file.write_bytes(b"NOPE" + b"\x00" * 16)
     assert_raises(
@@ -162,11 +134,28 @@ def main() -> None:
         lambda: read_sigdb_metadata(bad_file),
         msg_contains="invalid magic",
     )
+    bad_file.write_bytes(b"SIGT\x01" + b"\x00" * 16)
+    assert_raises(
+        SigDBFormatError,
+        lambda: read_sigdb_metadata(bad_file),
+        msg_contains="legacy signed format",
+    )
+    assert_raises(
+        SigDBFormatError,
+        lambda: load_sigdb(bad_file),
+        msg_contains="legacy signed format",
+    )
+    bad_file.write_bytes(b"SIGT\x03" + b"\x00" * 16)
+    assert_raises(
+        SigDBFormatError,
+        lambda: load_sigdb(bad_file),
+        msg_contains="unsupported sigdb version: 3",
+    )
     bad_file.unlink()
 
     raw = out.read_bytes()
-    data_hash_off, data_hash_len, sig_off = _read_container_offsets(out)
-    if sig_off + 64 != len(raw):
+    data_hash_off, data_hash_len = _read_container_offsets(out)
+    if data_hash_off + data_hash_len != len(raw):
         raise AssertionError("unexpected container layout in test file")
     corrupted = bytearray(raw)
     corrupted[data_hash_off] ^= 0x01
@@ -178,15 +167,10 @@ def main() -> None:
     out_corrupt.write_bytes(bytes(corrupted))
     assert_raises(
         SigDBIntegrityError,
-        lambda: load_sigdb(out_corrupt, public_key_hex=public_key_hex),
+        lambda: load_sigdb(out_corrupt),
         msg_contains="hash mismatch",
     )
-
-    assert_raises(
-        SigDBSignatureError,
-        lambda: load_sigdb(out, public_key_hex="00" * 32, verify_hash=False),
-        msg_contains="invalid signature",
-    )
+    load_sigdb(out_corrupt, verify_hash=False)
 
     out.unlink()
     out_corrupt.unlink()

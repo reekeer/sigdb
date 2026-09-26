@@ -13,7 +13,6 @@ def compile_sigdb_json(
     json_path: str | Path,
     output_path: str | Path,
     metadata: Mapping[str, Any] | None = None,
-    signing_key_hex: str | None = None,
     zstd_level: int = 19,
 ) -> SigDBBuildResult:
     p = Path(json_path)
@@ -28,6 +27,5 @@ def compile_sigdb_json(
         rules=cast(SigDBRules, rules_any),
         output_path=output_path,
         metadata=metadata,
-        signing_key_hex=signing_key_hex,
         zstd_level=zstd_level,
     )

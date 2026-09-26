@@ -10,12 +10,6 @@ from pathlib import Path
 from typing import Any, cast
 
 from sigdb.compression import compress_zstd, decompress_zstd
-from sigdb.crypto import (
-    derive_public_key_hex,
-    generate_signing_key_hex,
-    sign_hash,
-    verify_hash_signature,
-)
 from sigdb.internal.groups import (
     SIGDB_GROUPS,
     SIGDB_GROUPS_MAP,
@@ -33,18 +27,28 @@ from sigdb.types import (
     SigDBIntegrityError,
     SigDBItem,
     SigDBRules,
-    SigDBSignatureError,
     SigDBValidationResult,
 )
 from sigdb.utils.hashing import sha256
 from sigdb.utils.varint import decode_varint, encode_varint
 
 MAGIC: bytes = b"SIGT"
-VERSION: int = 1
+# 1: Ed25519-signed layout (removed, rejected on load; rebuild from rules).
+# 2: hash-only layout, literal patterns only. Regex/version capture is planned as VERSION 3.
+VERSION: int = 2
+LEGACY_SIGNED_VERSION: int = 1
 
 MAX_HEADER_BYTES: int = 65_536
 SHA256_SIZE: int = 32
-ED25519_SIGNATURE_SIZE: int = 64
+
+
+def _check_version(version: int) -> None:
+    if version == LEGACY_SIGNED_VERSION:
+        raise SigDBFormatError(
+            "unsupported sigdb version: 1 (legacy signed format); rebuild the database from rules"
+        )
+    if version != VERSION:
+        raise SigDBFormatError(f"unsupported sigdb version: {version}")
 
 
 def read_sigdb_metadata(path: str | Path) -> dict[str, Any]:
@@ -54,9 +58,7 @@ def read_sigdb_metadata(path: str | Path) -> dict[str, Any]:
         if magic != MAGIC:
             raise SigDBFormatError("invalid magic")
 
-        version = read_exact(f, 1)[0]
-        if version != VERSION:
-            raise SigDBFormatError(f"unsupported sigdb version: {version}")
+        _check_version(read_exact(f, 1)[0])
 
         header_len = struct.unpack(">I", read_exact(f, 4))[0]
         if header_len > MAX_HEADER_BYTES:
@@ -77,7 +79,6 @@ def build_sigdb(
     rules: SigDBRules,
     output_path: str | Path,
     metadata: Mapping[str, Any] | None = None,
-    signing_key_hex: str | None = None,
     zstd_level: int = 19,
 ) -> SigDBBuildResult:
     output = Path(output_path)
@@ -92,18 +93,6 @@ def build_sigdb(
     header_meta.setdefault("build", date.today().isoformat())
     header_meta.setdefault("items", len(items))
     header_meta.setdefault("patterns", len(patterns))
-    header_meta.setdefault("certificate", "ed25519")
-    header_meta.setdefault("signature_algorithm", "ed25519")
-
-    generated_signing_key_hex: str | None = None
-    if signing_key_hex is None:
-        generated_signing_key_hex = generate_signing_key_hex()
-        signing_key_hex = generated_signing_key_hex
-
-    public_key_hex = derive_public_key_hex(signing_key_hex)
-    if "public_key" in header_meta and header_meta["public_key"] != public_key_hex:
-        raise SigDBFormatError("metadata.public_key does not match signing key")
-    header_meta.setdefault("public_key", public_key_hex)
 
     header_data = json.dumps(header_meta, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     if len(header_data) > MAX_HEADER_BYTES:
@@ -117,7 +106,6 @@ def build_sigdb(
 
     automaton_raw = _serialize_automaton(automaton)
     data_hash = sha256(items_raw + automaton_raw)
-    signature = sign_hash(data_hash, signing_key_hex=signing_key_hex)
 
     items_data = compress_zstd(items_raw, level=zstd_level)
     automaton_data = compress_zstd(automaton_raw, level=zstd_level)
@@ -140,14 +128,10 @@ def build_sigdb(
         f.write(automaton_data)
 
         f.write(data_hash)
-        f.write(signature)
 
     return SigDBBuildResult(
         output_path=output,
-        public_key_hex=public_key_hex,
-        signing_key_hex=generated_signing_key_hex,
         data_hash_hex=data_hash.hex(),
-        signature_hex=signature.hex(),
         metadata=header_meta,
     )
 
@@ -155,13 +139,11 @@ def build_sigdb(
 def load_sigdb(
     path: str | Path,
     *,
-    public_key_hex: str | None = None,
     verify_hash: bool = True,
-    verify_signature: bool = True,
     max_items_json_size: int = 256 * 1024 * 1024,
     max_automaton_size: int = 512 * 1024 * 1024,
 ) -> SigDBDatabase:
-    header, items_compressed, auto_compressed, stored_hash, signature = _read_container(Path(path))
+    header, items_compressed, auto_compressed, stored_hash = _read_container(Path(path))
 
     items_raw = decompress_zstd(items_compressed, max_output_size=max_items_json_size)
     auto_raw = decompress_zstd(auto_compressed, max_output_size=max_automaton_size)
@@ -171,12 +153,6 @@ def load_sigdb(
         if computed != stored_hash:
             raise SigDBIntegrityError("corrupted database (hash mismatch)")
 
-    if verify_signature:
-        pk = public_key_hex or _metadata_public_key(header)
-        if pk is None:
-            raise SigDBSignatureError("public key not provided and not in metadata")
-        verify_hash_signature(stored_hash, signature, public_key_hex=pk)
-
     items = _parse_items(items_raw)
     automaton = _deserialize_automaton(auto_raw)
     return SigDBDatabase(metadata=header, items=items, automaton=automaton)
@@ -185,9 +161,7 @@ def load_sigdb(
 def validate_sigdb(
     path: str | Path,
     *,
-    public_key_hex: str | None = None,
     verify_hash: bool = True,
-    verify_signature: bool = True,
     max_items_json_size: int = 256 * 1024 * 1024,
     max_automaton_size: int = 512 * 1024 * 1024,
 ) -> SigDBValidationResult:
@@ -195,18 +169,9 @@ def validate_sigdb(
     header: dict[str, Any] | None = None
     stored_hash: bytes | None = None
     computed_hash: bytes | None = None
-    signature_ok: bool | None = None
-    pk: str | None = None
 
     try:
-        (
-            header,
-            items_compressed,
-            auto_compressed,
-            stored_hash,
-            signature,
-        ) = _read_container(Path(path))
-        pk = public_key_hex or _metadata_public_key(header)
+        header, items_compressed, auto_compressed, stored_hash = _read_container(Path(path))
 
         items_raw = decompress_zstd(items_compressed, max_output_size=max_items_json_size)
         auto_raw = decompress_zstd(auto_compressed, max_output_size=max_automaton_size)
@@ -215,17 +180,6 @@ def validate_sigdb(
             computed_hash = sha256(items_raw + auto_raw)
             if computed_hash != stored_hash:
                 errors.append("hash mismatch")
-
-        if verify_signature:
-            if pk is None:
-                errors.append("missing public key")
-            else:
-                try:
-                    verify_hash_signature(stored_hash, signature, public_key_hex=pk)
-                    signature_ok = True
-                except Exception:
-                    signature_ok = False
-                    errors.append("bad signature")
     except Exception as e:
         errors.append(str(e))
 
@@ -233,29 +187,18 @@ def validate_sigdb(
         ok=(len(errors) == 0),
         errors=errors,
         metadata=header,
-        public_key_hex=pk,
         stored_hash_hex=(stored_hash.hex() if stored_hash else None),
         computed_hash_hex=(computed_hash.hex() if computed_hash else None),
-        signature_ok=signature_ok,
     )
 
 
-def _metadata_public_key(metadata: Mapping[str, Any]) -> str | None:
-    pk = metadata.get("public_key")
-    if isinstance(pk, str) and pk:
-        return pk
-    return None
-
-
-def _read_container(path: Path) -> tuple[dict[str, Any], bytes, bytes, bytes, bytes]:
+def _read_container(path: Path) -> tuple[dict[str, Any], bytes, bytes, bytes]:
     with path.open("rb") as f:
         magic = read_exact(f, 4)
         if magic != MAGIC:
             raise SigDBFormatError("invalid magic")
 
-        version = read_exact(f, 1)[0]
-        if version != VERSION:
-            raise SigDBFormatError(f"unsupported sigdb version: {version}")
+        _check_version(read_exact(f, 1)[0])
 
         header_len = struct.unpack(">I", read_exact(f, 4))[0]
         if header_len > MAX_HEADER_BYTES:
@@ -277,12 +220,11 @@ def _read_container(path: Path) -> tuple[dict[str, Any], bytes, bytes, bytes, by
         auto_compressed = read_exact(f, auto_len)
 
         stored_hash = read_exact(f, SHA256_SIZE)
-        signature = read_exact(f, ED25519_SIGNATURE_SIZE)
 
         if f.read(1):
-            raise SigDBFormatError("trailing data after signature")
+            raise SigDBFormatError("trailing data after hash")
 
-    return header, items_compressed, auto_compressed, stored_hash, signature
+    return header, items_compressed, auto_compressed, stored_hash
 
 
 def _compile_rules(rules: object) -> tuple[list[SigDBItem], dict[bytes, list[int]]]:
