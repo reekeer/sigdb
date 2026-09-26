@@ -3,10 +3,12 @@
 [![PyPI](https://img.shields.io/pypi/v/sigdb)](https://pypi.org/project/sigdb/)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](#license)
-[![Format](https://img.shields.io/badge/format-SIGT%20v2-lightgrey)](#file-format)
+[![Format](https://img.shields.io/badge/format-SIGT%20v3-lightgrey)](#file-format)
 
-Compiler and loader for `.sigdb` files: technology fingerprint rules compiled into a single
-Aho-Corasick automaton for fast matching of HTTP headers, HTML, scripts and other signals.
+Compiler and loader for `.sigdb` files: rules compiled into per-group Aho-Corasick indexes,
+with arbitrary JSON per item and named data sections, packed into one zstd-compressed file.
+Used for technology fingerprinting (headers, HTML, scripts) and for library fingerprinting
+(feature tokens, source strings).
 
 ## Install
 
@@ -19,64 +21,97 @@ Requires Python 3.11+ and `zstandard`.
 ## Usage
 
 ```python
-from sigdb.core import Reader, build_sigdb
+from sigdb import build, load
 
 rules = {
     "nginx": {"headers": {"Server": "nginx"}},
-    "wordpress": {
-        "meta": {"generator": "WordPress"},
-        "html": {"tag": "link", "attr": "rel", "value": "https://api.w.org/"},
+    "react@18.2.0/index.js": {
+        "data": {"package": "react", "version": "18.2.0", "entry": True},
+        "features": ["P:useState", "S:react.element"],
+        "strings": ["Minified React error #"],
     },
-    "jquery": {"js": "jquery"},
+    "zustand@4.5.0/index.js": {
+        "data": {"package": "zustand", "version": "4.5.0"},
+        "features": ["P:useState", "K:subscribe"],
+    },
+}
+groups = {
+    "features": {},                        # exact, case-sensitive, no trimming
+    "strings": {"match": "contains"},      # substring search over full text
 }
 
-build_sigdb(rules=rules, output_path="tech.sigdb", metadata={"dataset": "example"})
+build(rules, "libs.sigdb", groups=groups, sections={"prints": {"version": 1}})
 
-db = Reader("tech.sigdb")
-db.match("Server: nginx/1.25.3").item.key                         # "nginx"
-db.match_group("meta", "WordPress 6.4", name="generator").item.key  # "wordpress"
-db.match_html('<link rel="https://api.w.org/" href="/wp-json/">').item.key  # "wordpress"
-db.match_search({"js": ["jquery-3.7.1.min.js"]}).item.key          # "jquery"
+db = load("libs.sigdb")
+db.match("Server: nginx/1.25.3").item.key                  # "nginx"
+db.match_tokens("features", ["P:useState", "K:subscribe"])  # {2: 2, 1: 1}
+db.match_all("features", ["P:useState"])                   # [Hit(item_id=1, hits=1, ...), ...]
+db.scan(source_code, "strings")                            # [Occurrence(pattern_id, start, end)]
+db.item("react@18.2.0/index.js").data                      # {"package": "react", ...}
+db.items_with_prefix("react@")
+db.section("prints")                                       # {"version": 1}
 ```
 
-Rules can also be compiled straight from a JSON file with `compile_sigdb_json`.
+Other entry points: `build_bytes`, `load_bytes`, `compile_json`, `compile_dir` (merges every
+`*.json` under a directory), `read_rules`, `read_metadata`, `validate`, `Reader`.
 
 ## Rules
 
-A rule set is a JSON object: technology name to groups of patterns.
+A rule set is a JSON object: item key to its groups. Keys are any non-empty strings
+(`pkg@1.0.0/dist/a.js`, `/`, `@` and `\u0000` included). `data` holds any JSON for the item and
+is never matched.
 
-- Map groups (`name -> value`): `headers`, `meta`
-- List groups (string or list of strings): `js`, `script_src`, `css`, `url`, `path`, `file`,
-  `dns`, `subdomain`, `link`, `json`, `api`, `tls`, `server`, `framework`, `cms`, `cdn`
-- `html`: string `tag:X:attr:Y:value:Z` or object `{"tag", "attr", "value"}`, or a list of either
+Every group has a config:
 
-Matching:
+| field | values | meaning |
+|---|---|---|
+| `match` | `prefix`, `contains`, `exact` | value starts with / contains / equals the pattern |
+| `ignore_case` | bool | lowercase patterns and queries |
+| `trim` | bool | strip surrounding whitespace |
+| `kind` | `list`, `map` | `map` groups take `{name: value}` and match `name:value` |
 
-- Case-insensitive, leading and trailing whitespace ignored.
-- Patterns are literal strings. Regex and version capture are not supported in format v2.
-- Inside a group, the value must start with the pattern (`js:jquery` matches `jquery.min.js`).
-  `headers` patterns have no group prefix and match anywhere in `Name: value`.
-- If several rules share a pattern, the one defined first wins.
+Built-in groups: `headers` (map, contains), `meta` (map, prefix), and `js`, `html`,
+`script_src`, `css`, `url`, `path`, `file`, `dns`, `subdomain`, `link`, `json`, `api`, `tls`,
+`server`, `framework`, `cms`, `cdn` (list, prefix). All built-ins ignore case and trim.
+Custom groups are declared in `groups` and default to exact, case-sensitive, no trim.
+
+A file can hold several indexes (`indexes={"functions": {"rules": ..., "groups": ...}}`,
+read with `db.index("functions")`). Plain rules go to the `main` index.
+
+Queries:
+
+- `match`, `match_group`, `match_search`, `match_html` return the first hit: earliest match,
+  then lowest item id.
+- `match_all` and `match_tokens` return every item with the number of distinct patterns hit.
+- `scan` returns every occurrence with UTF-8 byte offsets (of the lowercased text when the
+  group ignores case).
+- `pattern(id)` and `pattern_count(item_id, group)` give pattern text and totals for weighting.
+
+Builds are reproducible: no timestamps unless `timestamp=` is passed.
 
 ## File format
 
 ```
-"SIGT" | version (u8 = 2) | u32 len + header JSON | u32 len + zstd(items JSON)
-       | u32 len + zstd(automaton) | SHA256(items + automaton)
+"SIGT" | u8 version = 3 | u32 header length | header JSON
+       | u16 section count | per section: u8 name length, name, u32 raw size,
+         u32 stored size, SHA256(raw) | zstd section bodies
 ```
 
-Lengths are big-endian. The hash is checked on load (`verify_hash=True` by default).
-Version 1 files (Ed25519-signed layout) are rejected; rebuild them from the rules.
+Integers are big-endian. Sections are `index/<name>` (JSON: groups, items, patterns,
+pattern_items), `automaton/<index>/<group>`, `json/<name>` and `blob/<name>`. Each section
+is decompressed and hash-checked on first use. Versions 1 and 2 are rejected; rebuild
+them from rules.
 
 ## Tests
 
 ```sh
 pip install -e .
-for f in tests/test_*.py tests/validate_lib.py; do python "$f"; done
+for f in tests/test_*.py; do python "$f"; done
 ```
 
-`tests/golden/` holds rule sets with expected match results. After an intentional behavior
-change, regenerate them with `python tests/test_golden.py --regen` and review the diff.
+`tests/golden/` holds rule sets with expected results and section hashes. After an
+intentional change, regenerate them with `python tests/test_golden.py --regen` and review
+the diff.
 
 ## License
 
