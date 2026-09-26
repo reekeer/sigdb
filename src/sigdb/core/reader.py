@@ -14,12 +14,12 @@ from sigdb.internal.groups import (
     parse_string_map,
 )
 from sigdb.types import (
-    SigDBDatabase,
-    SigDBFormatError,
-    SigDBGroupName,
-    SigDBMatchResult,
-    SigDBSearchDefinition,
-    SigDBValidationResult,
+    Database,
+    FormatError,
+    GroupName,
+    MatchResult,
+    SearchDefinition,
+    ValidationResult,
 )
 
 
@@ -33,7 +33,7 @@ def _normalize_head(head: str) -> str:
     return f"{name}:{value}"
 
 
-def _iter_search_heads(search: SigDBSearchDefinition) -> list[str]:
+def _iter_search_heads(search: SearchDefinition) -> list[str]:
     heads: list[str] = []
     headers = parse_string_map(search.get("headers"), "headers")
     for header_name, header_value in headers.items():
@@ -53,14 +53,14 @@ def _iter_search_heads(search: SigDBSearchDefinition) -> list[str]:
     return heads
 
 
-class SigDBMatcher:
+class Matcher:
     __slots__ = ("_automaton", "_items")
 
-    def __init__(self, db: SigDBDatabase) -> None:
+    def __init__(self, db: Database) -> None:
         self._automaton = db.automaton
         self._items = db.items
 
-    def match(self, head: str) -> SigDBMatchResult:
+    def match(self, head: str) -> MatchResult:
         normalized = _normalize_head(head)
         data = normalized.encode("utf-8")
 
@@ -106,169 +106,169 @@ class SigDBMatcher:
                 ostart = out_start[state]
                 item_id = outputs[ostart]
                 item = self._items[item_id]
-                return SigDBMatchResult(result=True, item_id=item_id, item=item, head=normalized)
+                return MatchResult(result=True, item_id=item_id, item=item, head=normalized)
 
-        return SigDBMatchResult(result=False, item_id=None, item=None, head=normalized)
+        return MatchResult(result=False, item_id=None, item=None, head=normalized)
 
     def match_group(
         self,
-        group: SigDBGroupName,
+        group: GroupName,
         value: str,
         *,
         name: str | None = None,
-    ) -> SigDBMatchResult:
+    ) -> MatchResult:
         if group not in SIGDB_GROUPS:
-            raise SigDBFormatError(f"unknown group: {group}")
+            raise FormatError(f"unknown group: {group}")
         if name is None:
             if group in SIGDB_GROUPS_MAP:
-                raise SigDBFormatError(f"group {group} requires a name")
+                raise FormatError(f"group {group} requires a name")
             head = format_list_pattern(group, value)
         else:
             if group not in SIGDB_GROUPS_MAP:
-                raise SigDBFormatError(f"group {group} does not accept a name")
+                raise FormatError(f"group {group} does not accept a name")
             head = format_map_pattern(group, name, value)
         return self.match(head)
 
-    def match_search(self, search: SigDBSearchDefinition) -> SigDBMatchResult:
+    def match_search(self, search: SearchDefinition) -> MatchResult:
         for head in _iter_search_heads(search):
             result = self.match(head)
             if result.result:
                 return result
-        return SigDBMatchResult(result=False, item_id=None, item=None, head="")
+        return MatchResult(result=False, item_id=None, item=None, head="")
 
-    def match_html(self, html: str) -> SigDBMatchResult:
+    def match_html(self, html: str) -> MatchResult:
         for head in html_heads(html):
             result = self.match(head)
             if result.result:
                 return result
-        return SigDBMatchResult(result=False, item_id=None, item=None, head="")
+        return MatchResult(result=False, item_id=None, item=None, head="")
 
 
 @overload
-def match(head: str, src: SigDBMatcher) -> SigDBMatchResult: ...
+def match(head: str, src: Matcher) -> MatchResult: ...
 
 
 @overload
-def match(head: str, src: SigDBDatabase) -> SigDBMatchResult: ...
+def match(head: str, src: Database) -> MatchResult: ...
 
 
 @overload
-def match(head: str, src: SigDBReader) -> SigDBMatchResult: ...
+def match(head: str, src: Reader) -> MatchResult: ...
 
 
-def match(head: str, src: object) -> SigDBMatchResult:
-    if isinstance(src, SigDBMatcher):
+def match(head: str, src: object) -> MatchResult:
+    if isinstance(src, Matcher):
         return src.match(head)
-    if isinstance(src, SigDBDatabase):
-        return SigDBMatcher(src).match(head)
-    if isinstance(src, SigDBReader):
+    if isinstance(src, Database):
+        return Matcher(src).match(head)
+    if isinstance(src, Reader):
         return src.matcher().match(head)
-    raise TypeError("src must be SigDBReader, SigDBDatabase, or SigDBMatcher")
+    raise TypeError("src must be Reader, Database, or Matcher")
 
 
 @overload
 def match_group(
-    group: SigDBGroupName,
+    group: GroupName,
     value: str,
-    src: SigDBMatcher,
+    src: Matcher,
     *,
     name: str | None = None,
-) -> SigDBMatchResult: ...
+) -> MatchResult: ...
 
 
 @overload
 def match_group(
-    group: SigDBGroupName,
+    group: GroupName,
     value: str,
-    src: SigDBDatabase,
+    src: Database,
     *,
     name: str | None = None,
-) -> SigDBMatchResult: ...
+) -> MatchResult: ...
 
 
 @overload
 def match_group(
-    group: SigDBGroupName,
+    group: GroupName,
     value: str,
-    src: SigDBReader,
+    src: Reader,
     *,
     name: str | None = None,
-) -> SigDBMatchResult: ...
+) -> MatchResult: ...
 
 
 def match_group(
-    group: SigDBGroupName,
+    group: GroupName,
     value: str,
     src: object,
     *,
     name: str | None = None,
-) -> SigDBMatchResult:
-    if isinstance(src, SigDBMatcher):
+) -> MatchResult:
+    if isinstance(src, Matcher):
         return src.match_group(group, value, name=name)
-    if isinstance(src, SigDBDatabase):
-        return SigDBMatcher(src).match_group(group, value, name=name)
-    if isinstance(src, SigDBReader):
+    if isinstance(src, Database):
+        return Matcher(src).match_group(group, value, name=name)
+    if isinstance(src, Reader):
         return src.matcher().match_group(group, value, name=name)
-    raise TypeError("src must be SigDBReader, SigDBDatabase, or SigDBMatcher")
+    raise TypeError("src must be Reader, Database, or Matcher")
 
 
 @overload
 def match_search(
-    search: SigDBSearchDefinition,
-    src: SigDBMatcher,
-) -> SigDBMatchResult: ...
+    search: SearchDefinition,
+    src: Matcher,
+) -> MatchResult: ...
 
 
 @overload
 def match_search(
-    search: SigDBSearchDefinition,
-    src: SigDBDatabase,
-) -> SigDBMatchResult: ...
+    search: SearchDefinition,
+    src: Database,
+) -> MatchResult: ...
 
 
 @overload
 def match_search(
-    search: SigDBSearchDefinition,
-    src: SigDBReader,
-) -> SigDBMatchResult: ...
+    search: SearchDefinition,
+    src: Reader,
+) -> MatchResult: ...
 
 
-def match_search(search: SigDBSearchDefinition, src: object) -> SigDBMatchResult:
-    if isinstance(src, SigDBMatcher):
+def match_search(search: SearchDefinition, src: object) -> MatchResult:
+    if isinstance(src, Matcher):
         return src.match_search(search)
-    if isinstance(src, SigDBDatabase):
-        return SigDBMatcher(src).match_search(search)
-    if isinstance(src, SigDBReader):
+    if isinstance(src, Database):
+        return Matcher(src).match_search(search)
+    if isinstance(src, Reader):
         return src.matcher().match_search(search)
-    raise TypeError("src must be SigDBReader, SigDBDatabase, or SigDBMatcher")
+    raise TypeError("src must be Reader, Database, or Matcher")
 
 
 @overload
-def match_html(html: str, src: SigDBMatcher) -> SigDBMatchResult: ...
+def match_html(html: str, src: Matcher) -> MatchResult: ...
 
 
 @overload
-def match_html(html: str, src: SigDBDatabase) -> SigDBMatchResult: ...
+def match_html(html: str, src: Database) -> MatchResult: ...
 
 
 @overload
-def match_html(html: str, src: SigDBReader) -> SigDBMatchResult: ...
+def match_html(html: str, src: Reader) -> MatchResult: ...
 
 
-def match_html(html: str, src: object) -> SigDBMatchResult:
-    if isinstance(src, SigDBMatcher):
+def match_html(html: str, src: object) -> MatchResult:
+    if isinstance(src, Matcher):
         return src.match_html(html)
-    if isinstance(src, SigDBDatabase):
-        return SigDBMatcher(src).match_html(html)
-    if isinstance(src, SigDBReader):
+    if isinstance(src, Database):
+        return Matcher(src).match_html(html)
+    if isinstance(src, Reader):
         return src.matcher().match_html(html)
-    raise TypeError("src must be SigDBReader, SigDBDatabase, or SigDBMatcher")
+    raise TypeError("src must be Reader, Database, or Matcher")
 
 
-class SigDBReader:
+class Reader:
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
-        self._cache_db: SigDBDatabase | None = None
+        self._cache_db: Database | None = None
         self._cache_verify_hash: bool | None = None
 
     @property
@@ -278,36 +278,36 @@ class SigDBReader:
     def metadata(self) -> dict[str, Any]:
         return read_sigdb_metadata(self._path)
 
-    def validate(self, *, verify_hash: bool = True) -> SigDBValidationResult:
+    def validate(self, *, verify_hash: bool = True) -> ValidationResult:
         return validate_sigdb(self._path, verify_hash=verify_hash)
 
-    def load(self, *, verify_hash: bool = True) -> SigDBDatabase:
+    def load(self, *, verify_hash: bool = True) -> Database:
         return load_sigdb(self._path, verify_hash=verify_hash)
 
-    def load_cached(self, *, verify_hash: bool = True) -> SigDBDatabase:
+    def load_cached(self, *, verify_hash: bool = True) -> Database:
         if self._cache_db is not None and self._cache_verify_hash == verify_hash:
             return self._cache_db
         self._cache_db = self.load(verify_hash=verify_hash)
         self._cache_verify_hash = verify_hash
         return self._cache_db
 
-    def matcher(self, *, verify_hash: bool = True) -> SigDBMatcher:
-        return SigDBMatcher(self.load_cached(verify_hash=verify_hash))
+    def matcher(self, *, verify_hash: bool = True) -> Matcher:
+        return Matcher(self.load_cached(verify_hash=verify_hash))
 
-    def match(self, head: str) -> SigDBMatchResult:
+    def match(self, head: str) -> MatchResult:
         return self.matcher().match(head)
 
     def match_group(
         self,
-        group: SigDBGroupName,
+        group: GroupName,
         value: str,
         *,
         name: str | None = None,
-    ) -> SigDBMatchResult:
+    ) -> MatchResult:
         return self.matcher().match_group(group, value, name=name)
 
-    def match_search(self, search: SigDBSearchDefinition) -> SigDBMatchResult:
+    def match_search(self, search: SearchDefinition) -> MatchResult:
         return self.matcher().match_search(search)
 
-    def match_html(self, html: str) -> SigDBMatchResult:
+    def match_html(self, html: str) -> MatchResult:
         return self.matcher().match_html(html)

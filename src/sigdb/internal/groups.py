@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable, Mapping, Sequence
 
-from sigdb.types import SigDBFormatError
+from sigdb.types import FormatError
 
 SIGDB_GROUPS: tuple[str, ...] = (
     "headers",
@@ -44,11 +44,11 @@ def parse_string_map(value: object, group: str) -> dict[str, str]:
     if value is None:
         return {}
     if not isinstance(value, Mapping):
-        raise SigDBFormatError(f"{group} must be an object")
+        raise FormatError(f"{group} must be an object")
     out: dict[str, str] = {}
     for k, v in value.items():
         if not isinstance(k, str) or not isinstance(v, str):
-            raise SigDBFormatError(f"{group} keys/values must be strings")
+            raise FormatError(f"{group} keys/values must be strings")
         out[k] = v
     return out
 
@@ -62,10 +62,10 @@ def parse_string_list(value: object, group: str) -> list[str]:
         out: list[str] = []
         for item in value:
             if not isinstance(item, str):
-                raise SigDBFormatError(f"{group} items must be strings")
+                raise FormatError(f"{group} items must be strings")
             out.append(item)
         return out
-    raise SigDBFormatError(f"{group} must be a string or list of strings")
+    raise FormatError(f"{group} must be a string or list of strings")
 
 
 def parse_group_list(value: object, group: str) -> list[str]:
@@ -90,31 +90,31 @@ def parse_html_list(value: object) -> list[str]:
             if isinstance(item, Mapping):
                 out.append(_html_spec_to_value(item))
                 continue
-            raise SigDBFormatError("html items must be strings or objects")
+            raise FormatError("html items must be strings or objects")
         return out
-    raise SigDBFormatError("html must be a string, object, or list")
+    raise FormatError("html must be a string, object, or list")
 
 
 def _html_spec_to_value(spec: Mapping[object, object]) -> str:
     allowed = {"tag", "attr", "value"}
     for key in spec.keys():
         if not isinstance(key, str) or key not in allowed:
-            raise SigDBFormatError("html spec has invalid keys")
+            raise FormatError("html spec has invalid keys")
 
     tag = spec.get("tag")
     attr = spec.get("attr")
     value = spec.get("value")
 
     if tag is not None and (not isinstance(tag, str) or not tag):
-        raise SigDBFormatError("html tag must be a non-empty string")
+        raise FormatError("html tag must be a non-empty string")
     if attr is not None and (not isinstance(attr, str) or not attr):
-        raise SigDBFormatError("html attr must be a non-empty string")
+        raise FormatError("html attr must be a non-empty string")
     if value is not None and not isinstance(value, str):
-        raise SigDBFormatError("html value must be a string")
+        raise FormatError("html value must be a string")
     if value is not None and attr is None:
-        raise SigDBFormatError("html value requires attr")
+        raise FormatError("html value requires attr")
     if tag is None and attr is None and value is None:
-        raise SigDBFormatError("html spec must include tag or attr")
+        raise FormatError("html spec must include tag or attr")
 
     parts: list[str] = []
     if tag is not None:

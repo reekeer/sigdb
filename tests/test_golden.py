@@ -6,15 +6,15 @@ import tempfile
 from pathlib import Path
 from typing import Any, cast
 
-from sigdb.core import SigDBMatcher, compile_sigdb_json, load_sigdb
-from sigdb.types import SigDBDatabase, SigDBError, SigDBMatchResult
+from sigdb.core import Matcher, compile_sigdb_json, load_sigdb
+from sigdb.types import Database, Error, MatchResult
 
 GOLDEN_DIR = Path(__file__).with_name("golden")
 
 
-def _all_ids(db: SigDBDatabase, head: str) -> list[int]:
+def _all_ids(db: Database, head: str) -> list[int]:
     # Every item id reported while scanning `head`, in order of first appearance.
-    # `head` must already be normalized (SigDBMatchResult.head).
+    # `head` must already be normalized (MatchResult.head).
     a = db.automaton
     seen: list[int] = []
     state = 0
@@ -34,7 +34,7 @@ def _all_ids(db: SigDBDatabase, head: str) -> list[int]:
     return seen
 
 
-def _result(db: SigDBDatabase, r: SigDBMatchResult, *, with_all_ids: bool) -> dict[str, Any]:
+def _result(db: Database, r: MatchResult, *, with_all_ids: bool) -> dict[str, Any]:
     out: dict[str, Any] = {
         "result": r.result,
         "item_id": r.item_id,
@@ -46,8 +46,8 @@ def _result(db: SigDBDatabase, r: SigDBMatchResult, *, with_all_ids: bool) -> di
     return out
 
 
-def _run(db: SigDBDatabase, vector: dict[str, Any]) -> dict[str, Any]:
-    m = SigDBMatcher(db)
+def _run(db: Database, vector: dict[str, Any]) -> dict[str, Any]:
+    m = Matcher(db)
     call = vector["call"]
     try:
         if call == "match":
@@ -59,18 +59,18 @@ def _run(db: SigDBDatabase, vector: dict[str, Any]) -> dict[str, Any]:
             return _result(db, m.match_html(vector["html"]), with_all_ids=False)
         if call == "match_search":
             return _result(db, m.match_search(vector["search"]), with_all_ids=False)
-    except SigDBError as e:
+    except Error as e:
         return {"error": type(e).__name__, "message": str(e)}
     raise AssertionError(f"unknown call: {call}")
 
 
-def _compile(case_dir: Path, tmp: Path) -> SigDBDatabase:
+def _compile(case_dir: Path, tmp: Path) -> Database:
     out = tmp / f"{case_dir.name}.sigdb"
     compile_sigdb_json(json_path=case_dir / "rules.json", output_path=out)
     return load_sigdb(out)
 
 
-def _check_item_keys(case_dir: Path, db: SigDBDatabase) -> None:
+def _check_item_keys(case_dir: Path, db: Database) -> None:
     # Item ids are assigned in rule-definition order.
     rules = cast(dict[str, Any], json.loads((case_dir / "rules.json").read_bytes()))
     keys = [item.key for item in db.items]

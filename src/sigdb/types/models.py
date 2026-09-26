@@ -12,7 +12,7 @@ class DecodeResult:
 
 
 @dataclass(frozen=True, slots=True)
-class SigDBItem:
+class Item:
     key: str
     headers: dict[str, str]
 
@@ -22,7 +22,7 @@ class SigDBItem:
 
 
 @dataclass(frozen=True, slots=True)
-class SigDBBuildResult:
+class BuildResult:
     output_path: Path
     data_hash_hex: str
     metadata: dict[str, Any]
@@ -61,22 +61,22 @@ class Automaton:
 
 
 @dataclass(frozen=True, slots=True)
-class SigDBDatabase:
+class Database:
     metadata: dict[str, Any]
-    items: list[SigDBItem]
+    items: list[Item]
     automaton: Automaton
 
 
 @dataclass(frozen=True, slots=True)
-class SigDBMatchResult:
+class MatchResult:
     result: bool
     item_id: int | None
-    item: SigDBItem | None
+    item: Item | None
     head: str
 
 
 @dataclass(frozen=True, slots=True)
-class SigDBValidationResult:
+class ValidationResult:
     ok: bool
     errors: list[str]
     metadata: dict[str, Any] | None

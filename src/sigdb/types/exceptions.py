@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 
-class SigDBError(Exception):
+class Error(Exception):
     pass
 
 
-class SigDBFormatError(SigDBError):
+class FormatError(Error):
     pass
 
 
-class SigDBIntegrityError(SigDBError):
+class IntegrityError(Error):
     pass
-

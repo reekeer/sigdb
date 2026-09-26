@@ -5,20 +5,20 @@ from pathlib import Path
 from typing import Any
 
 from sigdb.types import (
-    SigDBBuildResult,
-    SigDBDatabase,
-    SigDBRules,
-    SigDBValidationResult,
+    BuildResult,
+    Database,
+    Rules,
+    ValidationResult,
 )
 
 
 def build_sigdb(
     *,
-    rules: SigDBRules,
+    rules: Rules,
     output_path: str | Path,
     metadata: Mapping[str, Any] | None = None,
     zstd_level: int = 19,
-) -> SigDBBuildResult:
+) -> BuildResult:
     from sigdb.format.trie import build_sigdb as _build
 
     return _build(
@@ -35,7 +35,7 @@ def load_sigdb(
     verify_hash: bool = True,
     max_items_json_size: int = 256 * 1024 * 1024,
     max_automaton_size: int = 512 * 1024 * 1024,
-) -> SigDBDatabase:
+) -> Database:
     from sigdb.format.trie import load_sigdb as _load
 
     return _load(
@@ -58,7 +58,7 @@ def validate_sigdb(
     verify_hash: bool = True,
     max_items_json_size: int = 256 * 1024 * 1024,
     max_automaton_size: int = 512 * 1024 * 1024,
-) -> SigDBValidationResult:
+) -> ValidationResult:
     from sigdb.format.trie import validate_sigdb as _validate
 
     return _validate(
@@ -75,7 +75,7 @@ def compile_sigdb_json(
     output_path: str | Path,
     metadata: Mapping[str, Any] | None = None,
     zstd_level: int = 19,
-) -> SigDBBuildResult:
+) -> BuildResult:
     from sigdb.core.compiler import compile_sigdb_json as _compile
 
     return _compile(

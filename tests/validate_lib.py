@@ -6,16 +6,16 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from sigdb.core import (
-    SigDBReader,
+    Reader,
     build_sigdb,
     load_sigdb,
     read_sigdb_metadata,
     validate_sigdb,
 )
 from sigdb.types import (
-    SigDBFormatError,
-    SigDBIntegrityError,
-    SigDBItem,
+    FormatError,
+    IntegrityError,
+    Item,
 )
 
 TExc = TypeVar("TExc", bound=BaseException)
@@ -113,16 +113,16 @@ def main() -> None:
     )
     assert_eq(v.stored_hash_hex, v.computed_hash_hex, "hash mismatch in validator")
 
-    reader = SigDBReader(out)
+    reader = Reader(out)
     db = reader.load()
     expected_items = [
-        SigDBItem(key="nginx", headers={"Server": "nginx"}),
-        SigDBItem(key="cloudflare", headers={"Server": "cloudflare"}),
+        Item(key="nginx", headers={"Server": "nginx"}),
+        Item(key="cloudflare", headers={"Server": "cloudflare"}),
     ]
     assert_eq(db.items, expected_items, "loaded items mismatch")
 
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: build_sigdb(rules=123, output_path=out),
         msg_contains="rules must be a JSON object",
     )
@@ -130,24 +130,24 @@ def main() -> None:
     bad_file = Path(__file__).with_name("test_invalid_magic.sigdb")
     bad_file.write_bytes(b"NOPE" + b"\x00" * 16)
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: read_sigdb_metadata(bad_file),
         msg_contains="invalid magic",
     )
     bad_file.write_bytes(b"SIGT\x01" + b"\x00" * 16)
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: read_sigdb_metadata(bad_file),
         msg_contains="legacy signed format",
     )
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: load_sigdb(bad_file),
         msg_contains="legacy signed format",
     )
     bad_file.write_bytes(b"SIGT\x03" + b"\x00" * 16)
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: load_sigdb(bad_file),
         msg_contains="unsupported sigdb version: 3",
     )
@@ -166,7 +166,7 @@ def main() -> None:
     )
     out_corrupt.write_bytes(bytes(corrupted))
     assert_raises(
-        SigDBIntegrityError,
+        IntegrityError,
         lambda: load_sigdb(out_corrupt),
         msg_contains="hash mismatch",
     )

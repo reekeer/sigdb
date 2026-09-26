@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 from sigdb.core import build_sigdb, load_sigdb, validate_sigdb
-from sigdb.types import SigDBFormatError
+from sigdb.types import FormatError
 
 TExc = TypeVar("TExc", bound=BaseException)
 
@@ -61,7 +61,7 @@ def main() -> None:
     out_bad.write_bytes(out.read_bytes() + b"\x00")
 
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: load_sigdb(out_bad),
         msg_contains="trailing data after hash",
     )

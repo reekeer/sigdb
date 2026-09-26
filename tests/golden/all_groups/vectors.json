@@ -356,7 +356,7 @@
     "group": "meta",
     "value": "WordPress",
     "expect": {
-      "error": "SigDBFormatError",
+      "error": "FormatError",
       "message": "group meta requires a name"
     }
   },
@@ -365,7 +365,7 @@
     "group": "headers",
     "value": "Drupal",
     "expect": {
-      "error": "SigDBFormatError",
+      "error": "FormatError",
       "message": "group headers requires a name"
     }
   },
@@ -374,7 +374,7 @@
     "group": "bogus",
     "value": "x",
     "expect": {
-      "error": "SigDBFormatError",
+      "error": "FormatError",
       "message": "unknown group: bogus"
     }
   },

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sigdb.types import DecodeResult, SigDBFormatError
+from sigdb.types import DecodeResult, FormatError
 
 
 def encode_varint(value: int) -> bytes:
@@ -24,7 +24,7 @@ def encode_varint(value: int) -> bytes:
 
 def decode_varint(data: bytes, offset: int, *, max_bytes: int = 10) -> DecodeResult:
     if offset < 0:
-        raise SigDBFormatError("negative offset")
+        raise FormatError("negative offset")
 
     shift = 0
     result = 0
@@ -32,7 +32,7 @@ def decode_varint(data: bytes, offset: int, *, max_bytes: int = 10) -> DecodeRes
 
     while True:
         if offset >= len(data):
-            raise SigDBFormatError("truncated varint")
+            raise FormatError("truncated varint")
 
         b = data[offset]
         offset += 1
@@ -44,4 +44,4 @@ def decode_varint(data: bytes, offset: int, *, max_bytes: int = 10) -> DecodeRes
 
         shift += 7
         if offset - start >= max_bytes:
-            raise SigDBFormatError("varint too long")
+            raise FormatError("varint too long")

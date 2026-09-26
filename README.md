@@ -19,7 +19,7 @@ Requires Python 3.11+ and `zstandard`.
 ## Usage
 
 ```python
-from sigdb.core import SigDBReader, build_sigdb
+from sigdb.core import Reader, build_sigdb
 
 rules = {
     "nginx": {"headers": {"Server": "nginx"}},
@@ -32,7 +32,7 @@ rules = {
 
 build_sigdb(rules=rules, output_path="tech.sigdb", metadata={"dataset": "example"})
 
-db = SigDBReader("tech.sigdb")
+db = Reader("tech.sigdb")
 db.match("Server: nginx/1.25.3").item.key                         # "nginx"
 db.match_group("meta", "WordPress 6.4", name="generator").item.key  # "wordpress"
 db.match_html('<link rel="https://api.w.org/" href="/wp-json/">').item.key  # "wordpress"

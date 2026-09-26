@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from sigdb.types import SigDBError
+from sigdb.types import Error
 
 
 def _import_zstd():
     try:
         import zstandard as zstd  # type: ignore[import-not-found]
     except ModuleNotFoundError as e:  # pragma: no cover
-        raise SigDBError("missing dependency: zstandard") from e
+        raise Error("missing dependency: zstandard") from e
     return zstd
 
 

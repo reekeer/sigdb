@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Literal, TypeAlias, TypedDict
 
-SigDBGroupName: TypeAlias = Literal[
+GroupName: TypeAlias = Literal[
     "headers",
     "js",
     "meta",
@@ -25,9 +25,9 @@ SigDBGroupName: TypeAlias = Literal[
     "cdn",
 ]
 
-SigDBGroupMapName: TypeAlias = Literal["headers", "meta"]
+GroupMapName: TypeAlias = Literal["headers", "meta"]
 
-SigDBGroupListName: TypeAlias = Literal[
+GroupListName: TypeAlias = Literal[
     "js",
     "html",
     "script_src",
@@ -47,41 +47,41 @@ SigDBGroupListName: TypeAlias = Literal[
     "cdn",
 ]
 
-SigDBStringList: TypeAlias = Sequence[str] | str
-SigDBStringMap: TypeAlias = Mapping[str, str]
+StringList: TypeAlias = Sequence[str] | str
+StringMap: TypeAlias = Mapping[str, str]
 
 
-class SigDBHtmlSpec(TypedDict, total=False):
+class HtmlSpec(TypedDict, total=False):
     tag: str
     attr: str
     value: str
 
 
-SigDBHtmlPattern: TypeAlias = SigDBHtmlSpec | str
-SigDBHtmlList: TypeAlias = Sequence[SigDBHtmlPattern] | SigDBHtmlPattern
+HtmlPattern: TypeAlias = HtmlSpec | str
+HtmlList: TypeAlias = Sequence[HtmlPattern] | HtmlPattern
 
 
-class SigDBRuleDefinition(TypedDict, total=False):
-    headers: SigDBStringMap
-    js: SigDBStringList
-    meta: SigDBStringMap
-    html: SigDBHtmlList
-    script_src: SigDBStringList
-    css: SigDBStringList
-    url: SigDBStringList
-    path: SigDBStringList
-    file: SigDBStringList
-    dns: SigDBStringList
-    subdomain: SigDBStringList
-    link: SigDBStringList
-    json: SigDBStringList
-    api: SigDBStringList
-    tls: SigDBStringList
-    server: SigDBStringList
-    framework: SigDBStringList
-    cms: SigDBStringList
-    cdn: SigDBStringList
+class RuleDefinition(TypedDict, total=False):
+    headers: StringMap
+    js: StringList
+    meta: StringMap
+    html: HtmlList
+    script_src: StringList
+    css: StringList
+    url: StringList
+    path: StringList
+    file: StringList
+    dns: StringList
+    subdomain: StringList
+    link: StringList
+    json: StringList
+    api: StringList
+    tls: StringList
+    server: StringList
+    framework: StringList
+    cms: StringList
+    cdn: StringList
 
 
-SigDBRules: TypeAlias = Mapping[str, SigDBRuleDefinition]
-SigDBSearchDefinition: TypeAlias = SigDBRuleDefinition
+Rules: TypeAlias = Mapping[str, RuleDefinition]
+SearchDefinition: TypeAlias = RuleDefinition

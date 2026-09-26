@@ -8,8 +8,8 @@ from sigdb.core.api import (
     validate_sigdb,
 )
 from sigdb.core.reader import (
-    SigDBMatcher,
-    SigDBReader,
+    Matcher,
+    Reader,
     match,
     match_group,
     match_html,
@@ -17,8 +17,8 @@ from sigdb.core.reader import (
 )
 
 __all__ = [
-    "SigDBMatcher",
-    "SigDBReader",
+    "Matcher",
+    "Reader",
     "build_sigdb",
     "compile_sigdb_json",
     "load_sigdb",

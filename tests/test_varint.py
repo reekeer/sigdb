@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TypeVar
 
-from sigdb.types import SigDBFormatError
+from sigdb.types import FormatError
 from sigdb.utils.varint import decode_varint, encode_varint
 
 TExc = TypeVar("TExc", bound=BaseException)
@@ -54,22 +54,22 @@ def main() -> None:
         msg_contains="negative",
     )
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: decode_varint(b"", 0),
         msg_contains="truncated varint",
     )
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: decode_varint(b"\x80", 0),
         msg_contains="truncated varint",
     )
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: decode_varint(b"\x80" * 10, 0),
         msg_contains="varint too long",
     )
     assert_raises(
-        SigDBFormatError,
+        FormatError,
         lambda: decode_varint(b"\x00", -1),
         msg_contains="negative offset",
     )

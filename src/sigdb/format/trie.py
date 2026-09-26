@@ -21,13 +21,13 @@ from sigdb.internal.groups import (
 from sigdb.storage import read_exact
 from sigdb.types import (
     Automaton,
-    SigDBBuildResult,
-    SigDBDatabase,
-    SigDBFormatError,
-    SigDBIntegrityError,
-    SigDBItem,
-    SigDBRules,
-    SigDBValidationResult,
+    BuildResult,
+    Database,
+    FormatError,
+    IntegrityError,
+    Item,
+    Rules,
+    ValidationResult,
 )
 from sigdb.utils.hashing import sha256
 from sigdb.utils.varint import decode_varint, encode_varint
@@ -44,11 +44,11 @@ SHA256_SIZE: int = 32
 
 def _check_version(version: int) -> None:
     if version == LEGACY_SIGNED_VERSION:
-        raise SigDBFormatError(
+        raise FormatError(
             "unsupported sigdb version: 1 (legacy signed format); rebuild the database from rules"
         )
     if version != VERSION:
-        raise SigDBFormatError(f"unsupported sigdb version: {version}")
+        raise FormatError(f"unsupported sigdb version: {version}")
 
 
 def read_sigdb_metadata(path: str | Path) -> dict[str, Any]:
@@ -56,31 +56,31 @@ def read_sigdb_metadata(path: str | Path) -> dict[str, Any]:
     with p.open("rb") as f:
         magic = read_exact(f, 4)
         if magic != MAGIC:
-            raise SigDBFormatError("invalid magic")
+            raise FormatError("invalid magic")
 
         _check_version(read_exact(f, 1)[0])
 
         header_len = struct.unpack(">I", read_exact(f, 4))[0]
         if header_len > MAX_HEADER_BYTES:
-            raise SigDBFormatError("HEADER_DATA too large")
+            raise FormatError("HEADER_DATA too large")
 
         header_raw = read_exact(f, header_len)
         try:
             header_any = json.loads(header_raw)
         except json.JSONDecodeError as e:
-            raise SigDBFormatError("invalid HEADER_DATA json") from e
+            raise FormatError("invalid HEADER_DATA json") from e
         if not isinstance(header_any, dict):
-            raise SigDBFormatError("HEADER_DATA must be an object")
+            raise FormatError("HEADER_DATA must be an object")
         return cast(dict[str, Any], header_any)
 
 
 def build_sigdb(
     *,
-    rules: SigDBRules,
+    rules: Rules,
     output_path: str | Path,
     metadata: Mapping[str, Any] | None = None,
     zstd_level: int = 19,
-) -> SigDBBuildResult:
+) -> BuildResult:
     output = Path(output_path)
 
     items, patterns = _compile_rules(rules)
@@ -96,7 +96,7 @@ def build_sigdb(
 
     header_data = json.dumps(header_meta, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     if len(header_data) > MAX_HEADER_BYTES:
-        raise SigDBFormatError("HEADER_DATA too large")
+        raise FormatError("HEADER_DATA too large")
 
     items_raw = json.dumps(
         [item.to_compact() for item in items],
@@ -111,7 +111,7 @@ def build_sigdb(
     automaton_data = compress_zstd(automaton_raw, level=zstd_level)
 
     if len(items_data) > 0xFFFFFFFF or len(automaton_data) > 0xFFFFFFFF:
-        raise SigDBFormatError("compressed block too large for 32-bit length")
+        raise FormatError("compressed block too large for 32-bit length")
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open("wb") as f:
@@ -129,7 +129,7 @@ def build_sigdb(
 
         f.write(data_hash)
 
-    return SigDBBuildResult(
+    return BuildResult(
         output_path=output,
         data_hash_hex=data_hash.hex(),
         metadata=header_meta,
@@ -142,7 +142,7 @@ def load_sigdb(
     verify_hash: bool = True,
     max_items_json_size: int = 256 * 1024 * 1024,
     max_automaton_size: int = 512 * 1024 * 1024,
-) -> SigDBDatabase:
+) -> Database:
     header, items_compressed, auto_compressed, stored_hash = _read_container(Path(path))
 
     items_raw = decompress_zstd(items_compressed, max_output_size=max_items_json_size)
@@ -151,11 +151,11 @@ def load_sigdb(
     if verify_hash:
         computed = sha256(items_raw + auto_raw)
         if computed != stored_hash:
-            raise SigDBIntegrityError("corrupted database (hash mismatch)")
+            raise IntegrityError("corrupted database (hash mismatch)")
 
     items = _parse_items(items_raw)
     automaton = _deserialize_automaton(auto_raw)
-    return SigDBDatabase(metadata=header, items=items, automaton=automaton)
+    return Database(metadata=header, items=items, automaton=automaton)
 
 
 def validate_sigdb(
@@ -164,7 +164,7 @@ def validate_sigdb(
     verify_hash: bool = True,
     max_items_json_size: int = 256 * 1024 * 1024,
     max_automaton_size: int = 512 * 1024 * 1024,
-) -> SigDBValidationResult:
+) -> ValidationResult:
     errors: list[str] = []
     header: dict[str, Any] | None = None
     stored_hash: bytes | None = None
@@ -183,7 +183,7 @@ def validate_sigdb(
     except Exception as e:
         errors.append(str(e))
 
-    return SigDBValidationResult(
+    return ValidationResult(
         ok=(len(errors) == 0),
         errors=errors,
         metadata=header,
@@ -196,21 +196,21 @@ def _read_container(path: Path) -> tuple[dict[str, Any], bytes, bytes, bytes]:
     with path.open("rb") as f:
         magic = read_exact(f, 4)
         if magic != MAGIC:
-            raise SigDBFormatError("invalid magic")
+            raise FormatError("invalid magic")
 
         _check_version(read_exact(f, 1)[0])
 
         header_len = struct.unpack(">I", read_exact(f, 4))[0]
         if header_len > MAX_HEADER_BYTES:
-            raise SigDBFormatError("HEADER_DATA too large")
+            raise FormatError("HEADER_DATA too large")
 
         header_raw = read_exact(f, header_len)
         try:
             header_any = json.loads(header_raw)
         except json.JSONDecodeError as e:
-            raise SigDBFormatError("invalid HEADER_DATA json") from e
+            raise FormatError("invalid HEADER_DATA json") from e
         if not isinstance(header_any, dict):
-            raise SigDBFormatError("HEADER_DATA must be an object")
+            raise FormatError("HEADER_DATA must be an object")
         header = cast(dict[str, Any], header_any)
 
         items_len = struct.unpack(">I", read_exact(f, 4))[0]
@@ -222,30 +222,30 @@ def _read_container(path: Path) -> tuple[dict[str, Any], bytes, bytes, bytes]:
         stored_hash = read_exact(f, SHA256_SIZE)
 
         if f.read(1):
-            raise SigDBFormatError("trailing data after hash")
+            raise FormatError("trailing data after hash")
 
     return header, items_compressed, auto_compressed, stored_hash
 
 
-def _compile_rules(rules: object) -> tuple[list[SigDBItem], dict[bytes, list[int]]]:
+def _compile_rules(rules: object) -> tuple[list[Item], dict[bytes, list[int]]]:
     if not isinstance(rules, Mapping):
-        raise SigDBFormatError("rules must be a JSON object")
+        raise FormatError("rules must be a JSON object")
 
     # Expected shorthand:
     # { "nginx": {"headers": {"Server": "nginx"}}, ... }
-    items: list[SigDBItem] = []
+    items: list[Item] = []
     rules_map = cast(Mapping[object, object], rules)
     patterns: dict[bytes, list[int]] = {}
     for key_any, value_any in rules_map.items():
         if not isinstance(key_any, str) or not key_any:
-            raise SigDBFormatError("rule keys must be non-empty strings")
+            raise FormatError("rule keys must be non-empty strings")
         if not isinstance(value_any, Mapping):
-            raise SigDBFormatError("rule value must be an object")
+            raise FormatError("rule value must be an object")
         key = key_any
         value = cast(Mapping[str, Any], value_any)
         headers = parse_string_map(value.get("headers", {}), "headers")
         item_id = len(items)
-        items.append(SigDBItem(key=key, headers=headers))
+        items.append(Item(key=key, headers=headers))
 
         _add_map_patterns(patterns, "headers", headers, item_id)
         for group in SIGDB_GROUPS:
@@ -294,27 +294,27 @@ def _add_list_patterns(
         _add_pattern(patterns, format_list_pattern(group, needle), item_id)
 
 
-def _parse_items(data: bytes) -> list[SigDBItem]:
+def _parse_items(data: bytes) -> list[Item]:
     try:
         decoded_any = json.loads(data)
     except json.JSONDecodeError as e:
-        raise SigDBFormatError("invalid items json") from e
+        raise FormatError("invalid items json") from e
     if not isinstance(decoded_any, list):
-        raise SigDBFormatError("items block must be a JSON array")
+        raise FormatError("items block must be a JSON array")
     decoded = cast(list[Any], decoded_any)
 
-    items: list[SigDBItem] = []
+    items: list[Item] = []
     for entry in decoded:
         if not isinstance(entry, list):
-            raise SigDBFormatError("item must be [key, headers]")
+            raise FormatError("item must be [key, headers]")
         entry_list = cast(list[object], entry)
         if len(entry_list) != 2:
-            raise SigDBFormatError("item must be [key, headers]")
+            raise FormatError("item must be [key, headers]")
         key_any, headers_any = entry_list[0], entry_list[1]
         if not isinstance(key_any, str) or not key_any:
-            raise SigDBFormatError("item key must be a non-empty string")
+            raise FormatError("item key must be a non-empty string")
         headers = parse_string_map(headers_any, "headers")
-        items.append(SigDBItem(key=key_any, headers=headers))
+        items.append(Item(key=key_any, headers=headers))
     return items
 
 
@@ -381,7 +381,7 @@ def _deserialize_automaton(data: bytes) -> Automaton:
         outputs[i], pos = _read_varint(data, pos)
 
     if pos != len(data):
-        raise SigDBFormatError("automaton block has trailing bytes")
+        raise FormatError("automaton block has trailing bytes")
 
     return Automaton(
         children_start=children_start,
