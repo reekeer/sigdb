@@ -44,3 +44,4 @@ Thumbs.db
 
 # SignatureDB files
 *.sigdb
+!tests/fixtures/ts/*.sigdb
