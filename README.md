@@ -111,7 +111,9 @@ for f in tests/test_*.py; do python "$f"; done
 
 `tests/golden/` holds rule sets with expected results and section hashes. After an
 intentional change, regenerate them with `python tests/test_golden.py --regen` and review
-the diff.
+the diff. `tests/fixtures/ts/` and `tests/fixtures/rs/` hold the same cases built by
+[sigdb-ts](https://github.com/reekeer/sigdb-ts) and [sigdb-rs](https://github.com/reekeer/sigdb-rs);
+they must load with the same section hashes and answer every vector the same way.
 
 ## License
 
